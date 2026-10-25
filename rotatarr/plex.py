@@ -14,6 +14,8 @@ from . import __version__
 PRODUCT = "Rotatarr"
 FLAGS = ("promotedToRecommended", "promotedToOwnHome", "promotedToSharedHome")
 COLLECTION_HUB_PREFIX = "custom.collection."
+# Plex's own movie collections have a plex:// guid; Kometa and hand-made ones use collection://.
+AUTOMATIC_GUID = "plex://collection/"
 RETRIES = 3  # attempts per request; Plex can be slow while it scans or Kometa runs
 
 log = logging.getLogger(__name__)
@@ -59,6 +61,7 @@ class Collection:
     child_count: int
     smart: bool | None  # None when the list endpoint did not say
     thumb: str = ""
+    automatic: bool = False  # made by Plex itself, e.g. "Harry Potter Collection"
 
 
 class PlexClient:
@@ -112,6 +115,7 @@ class PlexClient:
                 child_count=int(c.get("childCount", 0) or 0),
                 smart=None if smart is None else is_on(smart),
                 thumb=c.get("thumb", ""),
+                automatic=str(c.get("guid", "")).startswith(AUTOMATIC_GUID),
             ))
         return result
 

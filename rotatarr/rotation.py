@@ -78,10 +78,15 @@ def select(pool: list[Collection], lib: LibrarySettings, rng: random.Random,
     rng.shuffle(stale)
 
     used = {q.match.lower(): 0 for q in lib.quotas}
+    automatic = 0
     chosen: list[Collection] = list(always)
     for c in fresh + stale:
         if len(chosen) >= wanted:
             break
+        if c.automatic and lib.automatic_max is not None:
+            if automatic >= lib.automatic_max:
+                continue
+            automatic += 1
         quota = next((q for q in lib.quotas if q.match.strip() and q.match.lower() in c.title.lower()), None)
         if quota:
             key = quota.match.lower()

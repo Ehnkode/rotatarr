@@ -9,7 +9,7 @@ import uuid
 from datetime import date
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 CONFIG_DIR = Path(os.environ.get("ROTATARR_CONFIG_DIR", "/config"))
 SETTINGS_FILE = CONFIG_DIR / "settings.json"
@@ -51,8 +51,16 @@ class LibrarySettings(BaseModel):
     never: list[str] = Field(default_factory=list)  # exact titles
     seasonal: list[Seasonal] = Field(default_factory=list)
     quotas: list[Quota] = Field(default_factory=list)
+    # At most this many of Plex's automatic movie collections per run; None = no limit.
+    automatic_max: int | None = Field(default=None, ge=0)
     shuffle_order: bool = True
     shuffle_items: bool = True
+
+    @field_validator("quotas")
+    @classmethod
+    def _drop_broken_quotas(cls, quotas: list[Quota]) -> list[Quota]:
+        # Early versions saved a bare number typed into the old quota field as a name with limit 0.
+        return [q for q in quotas if not (q.match.strip().isdigit() and q.max == 0)]
 
 
 class Settings(BaseModel):

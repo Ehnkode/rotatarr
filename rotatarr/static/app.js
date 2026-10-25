@@ -250,6 +250,7 @@ async function fillLibraryForm() {
     collectionModes.set(x.title.toLowerCase(), "seasonal");
     seasons.set(x.title.toLowerCase(), { start: x.start, end: x.end });
   });
+  form.elements.automatic_max.value = s.automatic_max ?? "";
   collections = await api(`/api/libraries/${lib.key}/collections`).catch(() => []);
   $("#collection-count").textContent = collections.length;
   renderCollections();
@@ -283,7 +284,7 @@ function renderCollections() {
     title.textContent = c.title;
     const info = document.createElement("small");
     info.className = "muted-cell";
-    info.textContent = [c.items, c.smart ? t("smart") : "", ["too_small", "excluded"].includes(status) ? t(status) : ""]
+    info.textContent = [c.items, c.smart ? t("smart") : "", c.automatic ? t("automatic") : "", ["too_small", "excluded"].includes(status) ? t(status) : ""]
       .filter((x) => x !== "").join(" · ");
     name.append(title, " ", info);
     if (status === "seasonal") name.appendChild(seasonEditor(c.title.toLowerCase()));
@@ -302,6 +303,9 @@ function renderCollections() {
     tr.append(name, modeCell);
     body.appendChild(tr);
   });
+  const automatic = collections.filter((c) => c.automatic).length;
+  $("#automatic-field").hidden = automatic === 0;
+  $("#automatic-hint").textContent = format(t("automatic_hint"), { count: automatic });
   const pool = counts.random + counts.always + counts.seasonal;
   $("#pool-summary").textContent = `${format(t("pool_summary"), { pool, total: collections.length })} `
     + format(t("pool_details"), { small: counts.too_small, excluded: counts.excluded, never: counts.never });
@@ -368,6 +372,7 @@ async function saveLibrary(ev) {
     never: titlesWithMode("never"),
     seasonal: titlesWithMode("seasonal").map((title) => ({ title, ...seasons.get(title.toLowerCase()) })),
     quotas,
+    automatic_max: form.elements.automatic_max.value === "" ? null : +form.elements.automatic_max.value,
     shuffle_order: form.elements.shuffle_order.checked,
     shuffle_items: form.elements.shuffle_items.checked,
   };

@@ -94,6 +94,10 @@
           <div id="quota-rows"></div>
           <button type="button" id="add-quota" data-t="quota_add"></button>
         </div>
+        <div class="field" id="automatic-field" hidden>
+          <label><span data-t="automatic_max"></span><input type="number" min="0" name="automatic_max" data-t-placeholder="no_limit"></label>
+          <p class="muted" id="automatic-hint"></p>
+        </div>
 
         <details id="collections-box">
           <summary><span data-t="collections_title"></span> (<span id="collection-count"></span>)</summary>

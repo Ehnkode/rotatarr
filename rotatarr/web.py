@@ -188,7 +188,7 @@ def put_library(sid: str, body: LibrarySettings):
 @app.get("/api/libraries/{sid}/collections")
 def library_collections(sid: str):
     return [
-        {"title": c.title, "items": c.child_count, "smart": c.smart}
+        {"title": c.title, "items": c.child_count, "smart": c.smart, "automatic": c.automatic}
         for c in sorted(_client().collections(sid), key=lambda c: c.title.lower())
     ]
 
