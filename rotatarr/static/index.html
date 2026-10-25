@@ -30,7 +30,7 @@
     <div id="notice"></div>
 
     <section id="tab-status" hidden>
-      <div class="card" id="not-connected" hidden>
+      <div class="card not-connected" hidden>
         <p data-t="not_connected"></p>
         <button class="primary" data-goto="connection" data-t="go_connection"></button>
       </div>
@@ -58,7 +58,11 @@
     </section>
 
     <section id="tab-libraries" hidden>
-      <div class="card">
+      <div class="card not-connected" hidden>
+        <p data-t="not_connected"></p>
+        <button class="primary" data-goto="connection" data-t="go_connection"></button>
+      </div>
+      <div class="card" id="library-picker">
         <label><span data-t="library"></span>
           <select id="library-select"></select>
         </label>

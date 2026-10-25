@@ -32,7 +32,8 @@ function notify(text, isError = false) {
   el.textContent = isError ? `${t("error")}: ${text}` : text;
   el.className = isError ? "error" : "ok";
   clearTimeout(notify.timer);
-  notify.timer = setTimeout(() => { el.textContent = ""; el.className = ""; }, 6000);
+  // Errors stay until the next message, so they are not missed.
+  if (!isError) notify.timer = setTimeout(() => { el.textContent = ""; el.className = ""; }, 6000);
 }
 
 function lines(text) { return text.split("\n").map((s) => s.trim()).filter(Boolean); }
@@ -43,6 +44,8 @@ function showTab(name) {
   document.querySelectorAll("main > section").forEach((s) => { s.hidden = s.id !== `tab-${name}`; });
   document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
   location.hash = name;
+  document.querySelectorAll(".not-connected").forEach((el) => { el.hidden = settings.connected; });
+  $("#library-picker").hidden = !settings.connected;
   if (name === "status") refreshStatus();
 }
 
@@ -54,7 +57,6 @@ function formatNext(ts) {
 }
 
 async function refreshStatus() {
-  $("#not-connected").hidden = settings.connected;
   $("#dry-run-banner").hidden = !settings.dry_run;
   try {
     const state = await api("/api/state");
@@ -119,7 +121,7 @@ async function runNow(kind) {
 // --- libraries -----------------------------------------------------------------
 
 async function loadLibraries() {
-  if (!settings.connected) return;
+  if (!settings.connected) { libraries = []; fillLibraryForm(); return; }
   try { libraries = await api("/api/libraries"); } catch (e) { notify(e.message, true); return; }
   for (const select of [$("#library-select"), $("#rows-library")]) {
     const current = select.value;
@@ -284,7 +286,8 @@ async function disconnect() {
   await api("/api/plex/disconnect", { method: "POST" });
   settings = await api("/api/settings");
   fillSettingsForm();
-  refreshStatus();
+  await loadLibraries();
+  showTab("connection");
 }
 
 // --- start ---------------------------------------------------------------------
