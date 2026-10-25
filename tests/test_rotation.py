@@ -127,3 +127,17 @@ def test_reset_restores_rows_and_sorts():
     after = [(h.identifier, h.visible) for h in plex.hub_list if h.visible]
     assert after == [b for b in before if b[1]]
     assert set(plex.sorts.values()) == {"0"}
+
+
+def test_automatic_collections_are_limited():
+    pool = [Collection(str(i), f"Series {i}", 5, False, automatic=True) for i in range(10)]
+    pool += [Collection(str(100 + i), f"Mine {i}", 5, False) for i in range(10)]
+    lib = LibrarySettings(recommended=8, home=8, shared=8, automatic_max=2)
+    picked = select(pool, lib, random.Random(1))
+    assert len(picked) == 8
+    assert sum(c.automatic for c in picked) == 2
+
+
+def test_bare_number_quota_from_old_versions_is_dropped():
+    lib = LibrarySettings.model_validate({"quotas": [{"match": "10", "max": 0}, {"match": "Best of", "max": 3}]})
+    assert [q.match for q in lib.quotas] == ["Best of"]

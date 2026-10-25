@@ -12,7 +12,7 @@ Plex shows the same collection rows in the same order every day. Rotatarr turns 
 
 - **Rotates rows:** shows a random selection of your collections in *Recommended*, on *your home screen* and on *your friends' home screens*, and hides the rest.
 - **Shuffles:** the row order and the titles inside the rows. Built-in rows such as *Continue Watching* stay on top.
-- **Follows your rules:** always, never or seasonal per collection (e.g. *Halloween* only in October), plus limits and a minimum size.
+- **Follows your rules:** always, never or seasonal per collection (e.g. *Halloween* only in October), plus limits and a minimum size. Plex's automatic movie collections are recognised in any language, so you can limit them separately.
 - **Works with any collections:** Kometa, Plex's automatic movie collections or your own.
 
 Rotatarr only changes visibility and order. It never deletes or edits collections, and one button puts everything back.
