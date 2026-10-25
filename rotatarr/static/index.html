@@ -30,7 +30,7 @@
     <div id="notice"></div>
 
     <section id="tab-status" hidden>
-      <div class="card" id="not-connected" hidden>
+      <div class="card not-connected" hidden>
         <p data-t="not_connected"></p>
         <button class="primary" data-goto="connection" data-t="go_connection"></button>
       </div>
@@ -58,7 +58,11 @@
     </section>
 
     <section id="tab-libraries" hidden>
-      <div class="card">
+      <div class="card not-connected" hidden>
+        <p data-t="not_connected"></p>
+        <button class="primary" data-goto="connection" data-t="go_connection"></button>
+      </div>
+      <div class="card" id="library-picker">
         <label><span data-t="library"></span>
           <select id="library-select"></select>
         </label>
@@ -77,8 +81,12 @@
         <p class="muted" data-t="exclude_hint"></p>
         <label><span data-t="always_visible"></span><textarea name="always_visible" rows="3" list="collection-titles"></textarea></label>
         <p class="muted" data-t="always_hint"></p>
-        <label><span data-t="quotas"></span><textarea name="quotas" rows="3"></textarea></label>
-        <p class="muted" data-t="quotas_hint"></p>
+        <div class="field">
+          <span class="field-label" data-t="quotas"></span>
+          <p class="muted" data-t="quotas_hint"></p>
+          <div id="quota-rows"></div>
+          <button type="button" id="add-quota" data-t="quota_add"></button>
+        </div>
         <label class="check"><input type="checkbox" name="shuffle_order"> <span data-t="shuffle_order"></span></label>
         <label class="check"><input type="checkbox" name="shuffle_items"> <span data-t="shuffle_items"></span></label>
         <button class="primary" type="submit" data-t="save"></button>

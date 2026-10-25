@@ -122,3 +122,8 @@ button.primary { background: var(--accent); color: var(--accent-text); border-co
 
 .notes p { margin: 0 0 8px; font-size: 14px; }
 details { margin-top: 14px; }
+
+.field { margin: 10px 0; }
+.field-label { display: block; font-weight: 500; }
+.quota-row { display: grid; grid-template-columns: 1fr 110px auto; gap: 8px; margin-bottom: 8px; }
+#add-quota { margin-bottom: 6px; }

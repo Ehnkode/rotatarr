@@ -32,7 +32,12 @@ function notify(text, isError = false) {
   el.textContent = isError ? `${t("error")}: ${text}` : text;
   el.className = isError ? "error" : "ok";
   clearTimeout(notify.timer);
-  notify.timer = setTimeout(() => { el.textContent = ""; el.className = ""; }, 6000);
+  // Errors stay until the next message, so they are not missed.
+  if (!isError) notify.timer = setTimeout(() => { el.textContent = ""; el.className = ""; }, 6000);
+}
+
+function format(template, values) {
+  return template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
 }
 
 function lines(text) { return text.split("\n").map((s) => s.trim()).filter(Boolean); }
@@ -43,6 +48,8 @@ function showTab(name) {
   document.querySelectorAll("main > section").forEach((s) => { s.hidden = s.id !== `tab-${name}`; });
   document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
   location.hash = name;
+  document.querySelectorAll(".not-connected").forEach((el) => { el.hidden = settings.connected; });
+  $("#library-picker").hidden = !settings.connected;
   if (name === "status") refreshStatus();
 }
 
@@ -54,7 +61,6 @@ function formatNext(ts) {
 }
 
 async function refreshStatus() {
-  $("#not-connected").hidden = settings.connected;
   $("#dry-run-banner").hidden = !settings.dry_run;
   try {
     const state = await api("/api/state");
@@ -80,9 +86,12 @@ function renderHistory(history) {
     const head = document.createElement("div");
     head.className = "run-head";
     head.textContent = `${new Date(h.started).toLocaleString(lang)} · ${t(`kind_${h.kind}`)}`
-      + (h.dry_run ? " · test" : "") + (h.seconds !== undefined ? ` · ${h.seconds}s` : "");
+      + (h.dry_run ? ` · ${t("test")}` : "") + (h.seconds !== undefined ? ` · ${h.seconds}s` : "");
     div.appendChild(head);
-    h.lines.forEach((l) => { const p = document.createElement("div"); p.textContent = l; div.appendChild(p); });
+    const texts = h.results && h.results.length && h.lines.length === h.results.length
+      ? h.results.map((r) => (r.error ? `${r.library}: ${r.error}` : format(t(`log_${h.kind}`), r)))
+      : h.lines;
+    texts.forEach((l) => { const p = document.createElement("div"); p.textContent = l; div.appendChild(p); });
     box.appendChild(div);
   });
 }
@@ -119,7 +128,7 @@ async function runNow(kind) {
 // --- libraries -----------------------------------------------------------------
 
 async function loadLibraries() {
-  if (!settings.connected) return;
+  if (!settings.connected) { libraries = []; fillLibraryForm(); return; }
   try { libraries = await api("/api/libraries"); } catch (e) { notify(e.message, true); return; }
   for (const select of [$("#library-select"), $("#rows-library")]) {
     const current = select.value;
@@ -140,7 +149,8 @@ async function fillLibraryForm() {
   for (const name of ["enabled", "shuffle_order", "shuffle_items"]) form.elements[name].checked = s[name];
   form.elements.exclude.value = s.exclude.join("\n");
   form.elements.always_visible.value = s.always_visible.join("\n");
-  form.elements.quotas.value = s.quotas.map((q) => `${q.match} = ${q.max}`).join("\n");
+  $("#quota-rows").innerHTML = "";
+  s.quotas.forEach(addQuotaRow);
 
   const collections = await api(`/api/libraries/${lib.key}/collections`).catch(() => []);
   $("#collection-count").textContent = collections.length;
@@ -153,14 +163,28 @@ async function fillLibraryForm() {
   });
 }
 
+function addQuotaRow(quota = { match: "", max: 10 }) {
+  const row = document.createElement("div");
+  row.className = "quota-row";
+  row.innerHTML = `<input class="quota-match" type="text"><input class="quota-max" type="number" min="0"><button type="button" class="quota-remove">×</button>`;
+  row.querySelector(".quota-match").value = quota.match;
+  row.querySelector(".quota-match").placeholder = t("quota_match");
+  row.querySelector(".quota-match").setAttribute("aria-label", t("quota_match"));
+  row.querySelector(".quota-max").value = quota.max;
+  row.querySelector(".quota-max").setAttribute("aria-label", t("quota_max"));
+  row.querySelector(".quota-remove").title = t("quota_remove");
+  row.querySelector(".quota-remove").onclick = () => row.remove();
+  $("#quota-rows").appendChild(row);
+}
+
 async function saveLibrary(ev) {
   ev.preventDefault();
   const form = ev.target;
   const key = $("#library-select").value;
-  const quotas = lines(form.elements.quotas.value).map((l) => {
-    const [match, max] = l.split("=");
-    return { match: (match || "").trim(), max: parseInt(max, 10) || 0 };
-  }).filter((q) => q.match);
+  const quotas = [...document.querySelectorAll(".quota-row")].map((row) => ({
+    match: row.querySelector(".quota-match").value.trim(),
+    max: parseInt(row.querySelector(".quota-max").value, 10),
+  })).filter((q) => q.match && q.max >= 0);
   const body = {
     enabled: form.elements.enabled.checked,
     recommended: +form.elements.recommended.value,
@@ -284,7 +308,8 @@ async function disconnect() {
   await api("/api/plex/disconnect", { method: "POST" });
   settings = await api("/api/settings");
   fillSettingsForm();
-  refreshStatus();
+  await loadLibraries();
+  showTab("connection");
 }
 
 // --- start ---------------------------------------------------------------------
@@ -302,6 +327,7 @@ async function init() {
   $("#library-select").addEventListener("change", fillLibraryForm);
   $("#rows-library").addEventListener("change", renderRows);
   $("#library-form").addEventListener("submit", saveLibrary);
+  $("#add-quota").addEventListener("click", () => addQuotaRow());
   $("#settings-form").addEventListener("submit", saveSettings);
   $("#manual-form").addEventListener("submit", connectManual);
   $("#plex-login").addEventListener("click", plexLogin);

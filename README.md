@@ -15,7 +15,9 @@ Plex shows the same collection rows in the same order every day. Rotatarr turns 
 
 Rotatarr only changes visibility and order. It never deletes or edits collections.
 
-> Rotatarr is a community project and is not affiliated with or endorsed by Plex Inc.
+> Rotatarr is a community project and is not affiliated with or endorsed by Plex Inc. "Plex" is a trademark of Plex, Inc.
+
+**Privacy:** Rotatarr runs entirely on your own server. It talks only to your Plex Media Server and, for *Sign in with Plex*, to plex.tv. It has no telemetry and sends no data anywhere else. Your settings, including the Plex token, stay in `/config`.
 
 ## Install
 
@@ -46,6 +48,7 @@ Until Rotatarr is listed in Community Applications, add the template by hand: *D
 |---|---|---|
 | `PORT` | `7373` | Port of the web UI |
 | `TZ` | `Etc/UTC` | Time zone |
+| `PUID` / `PGID` | `99` / `100` | User and group that own the files in `/config` |
 | `ROTATARR_USERNAME` / `ROTATARR_PASSWORD` | empty | Protect the web UI with a login |
 | `LOG_LEVEL` | `INFO` | |
 
