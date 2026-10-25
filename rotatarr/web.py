@@ -41,6 +41,15 @@ PASSWORD = os.environ.get("ROTATARR_PASSWORD", "")
 
 
 @app.middleware("http")
+async def same_origin_only(request: Request, call_next):
+    """Refuse changes sent by other websites in the user's browser (cross-site request forgery)."""
+    # Browsers mark such requests; checking the Origin against Host would break reverse proxies.
+    if request.method not in ("GET", "HEAD", "OPTIONS") and request.headers.get("sec-fetch-site") == "cross-site":
+        return Response(status_code=403)
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def basic_auth(request: Request, call_next):
     """Optional protection of the whole UI with HTTP basic auth."""
     if PASSWORD:
@@ -149,7 +158,11 @@ def choose_server(body: ServerChoice):
     servers = _pins.get(body.pin_id)
     if not servers or not 0 <= body.server < len(servers):
         raise HTTPException(404, "unknown_server")
-    result = _connect(body.uri, servers[body.server]["token"])
+    server = servers[body.server]
+    # Only send the server's token to an address Plex listed for that server.
+    if body.uri not in {c["uri"] for c in server["connections"]}:
+        raise HTTPException(400, "unknown_address")
+    result = _connect(body.uri, server["token"])
     _pins.pop(body.pin_id, None)
     return result
 
@@ -222,7 +235,10 @@ def thumb(path: str):
         content, media_type = _client().image(path, 120, 180)
     except Exception as exc:
         raise HTTPException(404) from exc
-    return Response(content, media_type=media_type, headers={"Cache-Control": "max-age=86400"})
+    if not media_type.startswith("image/"):
+        raise HTTPException(404)
+    return Response(content, media_type=media_type,
+                    headers={"Cache-Control": "max-age=86400", "X-Content-Type-Options": "nosniff"})
 
 
 @app.get("/api/overview")
