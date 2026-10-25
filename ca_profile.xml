@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<CommunityApplications>
+  <Profile>Rotatarr keeps your Plex home screen fresh. It rotates which collections are shown as rows, shuffles the row order and the titles inside the rows, with seasonal collections, limits and an undo button. Free and open source.</Profile>
+  <Icon>https://raw.githubusercontent.com/Ehnkode/rotatarr/main/rotatarr/static/icon.png</Icon>
+  <WebPage>https://github.com/Ehnkode/rotatarr</WebPage>
+</CommunityApplications>
