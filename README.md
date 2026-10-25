@@ -61,6 +61,7 @@ Then open `http://<server>:7373`, sign in with Plex and enable your libraries.
 - TV apps cache the home screen. Restart the app if the new order does not show yet.
 - If Kometa sets `visible_home`, `visible_library` or `visible_shared`, it overwrites Rotatarr. Let Rotatarr handle visibility instead.
 - Smart collections cannot be sorted by hand. Set their sort to *random* in the smart filter instead.
+- Anyone who can open the web UI can change what Plex shows. Set `ROTATARR_USERNAME` and `ROTATARR_PASSWORD` if others share your network, and do not expose Rotatarr to the internet without a reverse proxy with HTTPS.
 
 **Privacy:** Rotatarr runs entirely on your own server and only talks to your Plex server and plex.tv. No telemetry.
 

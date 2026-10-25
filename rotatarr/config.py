@@ -100,4 +100,5 @@ def save(settings: Settings) -> None:
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         tmp = SETTINGS_FILE.with_suffix(".tmp")
         tmp.write_text(json.dumps(settings.model_dump(), indent=2), encoding="utf-8")
+        tmp.chmod(0o600)  # holds the Plex token
         tmp.replace(SETTINGS_FILE)

@@ -38,3 +38,23 @@ def test_libraries_need_connection(client):
 def test_index_served(client):
     c, _ = client
     assert "Rotatarr" in c.get("/").text
+
+
+def test_other_websites_cannot_change_anything(client):
+    c, _ = client
+    assert c.post("/api/reset", headers={"Sec-Fetch-Site": "cross-site"}).status_code == 403
+    assert c.put("/api/settings", json={"dry_run": True}, headers={"Sec-Fetch-Site": "same-origin"}).status_code == 200
+
+
+def test_server_token_only_goes_to_listed_addresses(client):
+    c, _ = client
+    from rotatarr import web
+    web._pins[7] = [{"name": "Home", "token": "t", "connections": [{"uri": "http://192.168.1.2:32400", "local": True}]}]
+    r = c.post("/api/plex/server", json={"pin_id": 7, "server": 0, "uri": "http://evil.example"})
+    assert r.status_code == 400
+
+
+def test_settings_file_is_private(client):
+    _, config = client
+    config.save(config.load())
+    assert config.SETTINGS_FILE.stat().st_mode & 0o077 == 0
