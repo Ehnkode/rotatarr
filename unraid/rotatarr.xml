@@ -13,10 +13,12 @@
   <WebUI>http://[IP]:[PORT:7373]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/Ehnkode/rotatarr/main/unraid/rotatarr.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/Ehnkode/rotatarr/main/rotatarr/static/icon.png</Icon>
-  <ExtraParams>--user 99:100</ExtraParams>
+  <ExtraParams/>
   <Config Name="Web UI port" Target="7373" Default="7373" Mode="tcp" Description="Port of the web interface" Type="Port" Display="always" Required="true" Mask="false">7373</Config>
   <Config Name="Config" Target="/config" Default="/mnt/user/appdata/rotatarr" Mode="rw" Description="Settings and run history" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/rotatarr</Config>
   <Config Name="Time zone" Target="TZ" Default="Europe/Berlin" Mode="" Description="Time zone for the schedule" Type="Variable" Display="always" Required="false" Mask="false">Europe/Berlin</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User id that owns the config files" Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group id that owns the config files" Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
   <Config Name="Web UI username" Target="ROTATARR_USERNAME" Default="" Mode="" Description="Optional. Protects the web UI together with the password." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
   <Config Name="Web UI password" Target="ROTATARR_PASSWORD" Default="" Mode="" Description="Optional. Leave empty to disable the login." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
 </Container>

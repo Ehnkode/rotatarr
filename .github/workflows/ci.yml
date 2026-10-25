@@ -17,8 +17,25 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: pytest -q
 
-  docker:
+  smoke:
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t rotatarr:smoke .
+      - name: Start the container and check the web UI answers
+        run: |
+          mkdir config && sudo chown root:root config
+          docker run -d --name rotatarr -p 7373:7373 -v "$PWD/config:/config" rotatarr:smoke
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:7373/api/state && break; sleep 1; done
+          curl -fs http://127.0.0.1:7373/api/settings
+          test "$(stat -c %u:%g config/settings.json)" = "99:100"
+          docker top rotatarr | grep -v root | grep -q rotatarr
+      - if: failure()
+        run: docker logs rotatarr
+
+  docker:
+    needs: smoke
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:

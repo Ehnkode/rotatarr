@@ -46,6 +46,7 @@ Until Rotatarr is listed in Community Applications, add the template by hand: *D
 |---|---|---|
 | `PORT` | `7373` | Port of the web UI |
 | `TZ` | `Etc/UTC` | Time zone |
+| `PUID` / `PGID` | `99` / `100` | User and group that own the files in `/config` |
 | `ROTATARR_USERNAME` / `ROTATARR_PASSWORD` | empty | Protect the web UI with a login |
 | `LOG_LEVEL` | `INFO` | |
 
