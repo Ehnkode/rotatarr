@@ -10,6 +10,7 @@ const t = (key) => (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
 function applyTexts() {
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = t(el.dataset.t); });
+  document.querySelectorAll("[data-t-placeholder]").forEach((el) => { el.placeholder = t(el.dataset.tPlaceholder); });
   $("#lang").value = lang;
 }
 
@@ -139,6 +140,9 @@ async function loadLibraries() {
   fillLibraryForm();
 }
 
+let collections = [];
+const collectionModes = new Map(); // title -> "random" | "always" | "never"
+
 async function fillLibraryForm() {
   const lib = libraries.find((l) => l.key === $("#library-select").value);
   const form = $("#library-form");
@@ -148,19 +152,68 @@ async function fillLibraryForm() {
   for (const name of ["recommended", "home", "shared", "min_items"]) form.elements[name].value = s[name];
   for (const name of ["enabled", "shuffle_order", "shuffle_items"]) form.elements[name].checked = s[name];
   form.elements.exclude.value = s.exclude.join("\n");
-  form.elements.always_visible.value = s.always_visible.join("\n");
   $("#quota-rows").innerHTML = "";
   s.quotas.forEach(addQuotaRow);
 
-  const collections = await api(`/api/libraries/${lib.key}/collections`).catch(() => []);
+  collectionModes.clear();
+  s.always_visible.forEach((title) => collectionModes.set(title.toLowerCase(), "always"));
+  s.never.forEach((title) => collectionModes.set(title.toLowerCase(), "never"));
+  collections = await api(`/api/libraries/${lib.key}/collections`).catch(() => []);
   $("#collection-count").textContent = collections.length;
-  const ul = $("#collections");
-  ul.innerHTML = "";
+  renderCollections();
+}
+
+function collectionStatus(c, form) {
+  const mode = collectionModes.get(c.title.toLowerCase()) || "random";
+  if (mode !== "random") return mode;
+  if (c.items < (+form.elements.min_items.value || 0)) return "too_small";
+  const title = c.title.toLowerCase();
+  if (lines(form.elements.exclude.value).some((w) => title.includes(w.toLowerCase()))) return "excluded";
+  return "random";
+}
+
+function renderCollections() {
+  const form = $("#library-form");
+  const filter = $("#collection-filter").value.trim().toLowerCase();
+  const body = $("#collections");
+  body.innerHTML = "";
+  const counts = { random: 0, always: 0, never: 0, too_small: 0, excluded: 0 };
   collections.forEach((c) => {
-    const li = document.createElement("li");
-    li.textContent = `${c.title} (${c.items})` + (c.smart ? ` · ${t("smart")}` : "");
-    ul.appendChild(li);
+    const status = collectionStatus(c, form);
+    counts[status] += 1;
+    if (filter && !c.title.toLowerCase().includes(filter)) return;
+    const tr = document.createElement("tr");
+    if (status === "too_small" || status === "excluded" || status === "never") tr.className = "out";
+    if (status === "always") tr.className = "always";
+    const name = document.createElement("td");
+    const title = document.createElement("span");
+    title.className = "coll-title";
+    title.textContent = c.title;
+    const info = document.createElement("small");
+    info.className = "muted-cell";
+    info.textContent = [c.items, c.smart ? t("smart") : "", ["too_small", "excluded"].includes(status) ? t(status) : ""]
+      .filter((x) => x !== "").join(" · ");
+    name.append(title, " ", info);
+    const modeCell = document.createElement("td");
+    const select = document.createElement("select");
+    ["random", "always", "never"].forEach((m) => select.add(new Option(t(`mode_${m}`), m)));
+    select.value = collectionModes.get(c.title.toLowerCase()) || "random";
+    select.onchange = () => {
+      if (select.value === "random") collectionModes.delete(c.title.toLowerCase());
+      else collectionModes.set(c.title.toLowerCase(), select.value);
+      renderCollections();
+    };
+    modeCell.appendChild(select);
+    tr.append(name, modeCell);
+    body.appendChild(tr);
   });
+  const pool = counts.random + counts.always;
+  $("#pool-summary").textContent = `${format(t("pool_summary"), { pool, total: collections.length })} `
+    + format(t("pool_details"), { small: counts.too_small, excluded: counts.excluded, never: counts.never });
+}
+
+function titlesWithMode(mode) {
+  return collections.filter((c) => collectionModes.get(c.title.toLowerCase()) === mode).map((c) => c.title);
 }
 
 function addQuotaRow(quota = { match: "", max: 10 }) {
@@ -192,7 +245,8 @@ async function saveLibrary(ev) {
     shared: +form.elements.shared.value,
     min_items: +form.elements.min_items.value,
     exclude: lines(form.elements.exclude.value),
-    always_visible: lines(form.elements.always_visible.value),
+    always_visible: titlesWithMode("always"),
+    never: titlesWithMode("never"),
     quotas,
     shuffle_order: form.elements.shuffle_order.checked,
     shuffle_items: form.elements.shuffle_items.checked,
@@ -211,10 +265,64 @@ function fillSettingsForm() {
   for (const name of ["rotation_interval_minutes", "shuffle_interval_minutes", "items_to_front"]) {
     form.elements[name].value = settings[name];
   }
-  form.elements.pinned_rows.value = settings.pinned_rows.join("\n");
+  if (!pinnedRows.length) pinnedRows = settings.pinned_rows.map((key) => ({ key, checked: true }));
+  renderPinned();
   form.elements.dry_run.checked = settings.dry_run;
   $("#connected-card").hidden = !settings.connected;
   $("#connected-url").textContent = settings.plex_url;
+}
+
+let pinnedRows = []; // [{key, title, checked}] in display order
+
+async function loadBuiltinRows() {
+  const builtin = settings.connected ? await api("/api/builtin-rows").catch(() => []) : [];
+  const titles = new Map(builtin.map((r) => [r.key, r.title]));
+  // Saved rows first, in their order; then the other built-in rows Plex knows.
+  pinnedRows = settings.pinned_rows.map((key) => ({ key, title: titles.get(key), checked: true }));
+  builtin.forEach((r) => {
+    if (!pinnedRows.some((p) => p.key === r.key)) pinnedRows.push({ key: r.key, title: r.title, checked: false });
+  });
+  renderPinned();
+}
+
+function renderPinned() {
+  const list = $("#pinned-list");
+  list.innerHTML = "";
+  pinnedRows.forEach((row, i) => {
+    const li = document.createElement("li");
+    const label = document.createElement("label");
+    label.className = "check";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = row.checked;
+    box.onchange = () => { row.checked = box.checked; };
+    const text = document.createElement("span");
+    text.textContent = row.title || row.key;
+    if (!row.title) {
+      const hint = document.createElement("small");
+      hint.className = "muted";
+      hint.textContent = ` (${t("builtin_unknown")})`;
+      text.appendChild(hint);
+    }
+    label.append(box, text);
+    const buttons = document.createElement("span");
+    buttons.className = "order-buttons";
+    [["↑", -1, "move_up"], ["↓", 1, "move_down"]].forEach(([symbol, dir, key]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = symbol;
+      b.title = t(key);
+      b.setAttribute("aria-label", t(key));
+      b.disabled = i + dir < 0 || i + dir >= pinnedRows.length;
+      b.onclick = () => {
+        [pinnedRows[i], pinnedRows[i + dir]] = [pinnedRows[i + dir], pinnedRows[i]];
+        renderPinned();
+      };
+      buttons.appendChild(b);
+    });
+    li.append(label, buttons);
+    list.appendChild(li);
+  });
 }
 
 async function saveSettings(ev) {
@@ -225,7 +333,7 @@ async function saveSettings(ev) {
       rotation_interval_minutes: +form.elements.rotation_interval_minutes.value,
       shuffle_interval_minutes: +form.elements.shuffle_interval_minutes.value,
       items_to_front: +form.elements.items_to_front.value,
-      pinned_rows: lines(form.elements.pinned_rows.value),
+      pinned_rows: pinnedRows.filter((r) => r.checked).map((r) => r.key),
       dry_run: form.elements.dry_run.checked,
     } });
     notify(t("saved"));
@@ -236,6 +344,8 @@ async function setLanguage(value) {
   lang = value;
   applyTexts();
   settings = await api("/api/settings", { method: "PUT", body: { language: lang } }).catch(() => settings);
+  renderPinned();
+  if (collections.length) renderCollections();
   refreshStatus();
 }
 
@@ -246,6 +356,7 @@ async function afterConnect(result) {
   settings = await api("/api/settings");
   fillSettingsForm();
   await loadLibraries();
+  loadBuiltinRows();
   showTab("libraries");
 }
 
@@ -328,12 +439,17 @@ async function init() {
   $("#rows-library").addEventListener("change", renderRows);
   $("#library-form").addEventListener("submit", saveLibrary);
   $("#add-quota").addEventListener("click", () => addQuotaRow());
+  $("#collection-filter").addEventListener("input", renderCollections);
+  for (const name of ["min_items", "exclude"]) {
+    $("#library-form").elements[name].addEventListener("input", renderCollections);
+  }
   $("#settings-form").addEventListener("submit", saveSettings);
   $("#manual-form").addEventListener("submit", connectManual);
   $("#plex-login").addEventListener("click", plexLogin);
   $("#disconnect").addEventListener("click", disconnect);
 
   await loadLibraries();
+  loadBuiltinRows();
   const start = location.hash.slice(1);
   showTab(["status", "libraries", "settings", "connection"].includes(start) ? start
     : (settings.connected ? "status" : "connection"));
