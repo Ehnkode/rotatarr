@@ -33,6 +33,7 @@ class LibrarySettings(BaseModel):
     min_items: int = Field(default=3, ge=0)
     exclude: list[str] = Field(default_factory=list)
     always_visible: list[str] = Field(default_factory=list)
+    never: list[str] = Field(default_factory=list)  # exact titles
     quotas: list[Quota] = Field(default_factory=list)
     shuffle_order: bool = True
     shuffle_items: bool = True

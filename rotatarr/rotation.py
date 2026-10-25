@@ -43,7 +43,9 @@ def build_pool(collections: list[Collection], lib: LibrarySettings) -> list[Coll
     """Collections that may be shown at all: enough items and not excluded."""
     return [
         c for c in collections
-        if c.child_count >= lib.min_items and not _contains(c.title, lib.exclude)
+        if c.child_count >= lib.min_items
+        and not _contains(c.title, lib.exclude)
+        and not _contains_exact(c.title, lib.never)
     ]
 
 

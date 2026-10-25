@@ -202,6 +202,23 @@ def library_rows(sid: str):
     ]
 
 
+@app.get("/api/builtin-rows")
+def builtin_rows():
+    """Rows built into Plex (Continue Watching, Recently Added, ...), merged across libraries."""
+    client = _client()
+    rows: dict[str, str] = {}
+    for sec in client.sections():
+        if sec["type"] not in SUPPORTED_TYPES:
+            continue
+        for h in client.hubs(sec["key"]):
+            if h.collection_key is not None:
+                continue
+            key = h.identifier.rsplit(".", 1)[-1].lower()
+            if key and not key.isdigit():
+                rows.setdefault(key, h.title)
+    return [{"key": k, "title": t} for k, t in rows.items()]
+
+
 # --- jobs ------------------------------------------------------------------------
 
 @app.post("/api/run/{kind}")

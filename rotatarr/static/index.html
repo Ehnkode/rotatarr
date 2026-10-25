@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rotatarr</title>
-  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/favicon.png" type="image/png">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -69,31 +69,42 @@
       </div>
       <form id="library-form" class="card" hidden>
         <label class="check"><input type="checkbox" name="enabled"> <span data-t="enabled"></span></label>
+
+        <h3 data-t="visible_rows"></h3>
         <div class="grid3">
           <label><span data-t="recommended"></span><input type="number" min="0" name="recommended"></label>
           <label><span data-t="home"></span><input type="number" min="0" name="home"></label>
           <label><span data-t="shared"></span><input type="number" min="0" name="shared"></label>
         </div>
         <p class="muted" data-t="counts_hint"></p>
+
+        <h3 data-t="which_collections"></h3>
+        <p class="pool-summary" id="pool-summary"></p>
         <label><span data-t="min_items"></span><input type="number" min="0" name="min_items"></label>
         <p class="muted" data-t="min_items_hint"></p>
-        <label><span data-t="exclude"></span><textarea name="exclude" rows="3"></textarea></label>
+        <label><span data-t="exclude"></span><textarea name="exclude" rows="2"></textarea></label>
         <p class="muted" data-t="exclude_hint"></p>
-        <label><span data-t="always_visible"></span><textarea name="always_visible" rows="3" list="collection-titles"></textarea></label>
-        <p class="muted" data-t="always_hint"></p>
         <div class="field">
           <span class="field-label" data-t="quotas"></span>
           <p class="muted" data-t="quotas_hint"></p>
           <div id="quota-rows"></div>
           <button type="button" id="add-quota" data-t="quota_add"></button>
         </div>
+
+        <details id="collections-box">
+          <summary><span data-t="collections_title"></span> (<span id="collection-count"></span>)</summary>
+          <p class="muted" data-t="collections_hint"></p>
+          <input type="search" id="collection-filter" data-t-placeholder="collections_filter">
+          <table class="collections">
+            <tbody id="collections"></tbody>
+          </table>
+        </details>
+
+        <h3 data-t="shuffle_title"></h3>
         <label class="check"><input type="checkbox" name="shuffle_order"> <span data-t="shuffle_order"></span></label>
         <label class="check"><input type="checkbox" name="shuffle_items"> <span data-t="shuffle_items"></span></label>
-        <button class="primary" type="submit" data-t="save"></button>
-        <details>
-          <summary><span id="collection-count"></span> <span data-t="collections_found"></span></summary>
-          <ul id="collections" class="columns"></ul>
-        </details>
+
+        <div class="form-save"><button class="primary" type="submit" data-t="save"></button></div>
       </form>
     </section>
 
@@ -103,8 +114,11 @@
         <label><span data-t="shuffle_interval"></span><input type="number" min="0" name="shuffle_interval_minutes"></label>
         <p class="muted" data-t="interval_hint"></p>
         <label><span data-t="items_to_front"></span><input type="number" min="1" name="items_to_front"></label>
-        <label><span data-t="pinned_rows"></span><textarea name="pinned_rows" rows="4"></textarea></label>
-        <p class="muted" data-t="pinned_hint"></p>
+        <div class="field">
+          <span class="field-label" data-t="pinned_rows"></span>
+          <p class="muted" data-t="pinned_hint"></p>
+          <ul id="pinned-list" class="pinned"></ul>
+        </div>
         <label class="check"><input type="checkbox" name="dry_run"> <span data-t="dry_run"></span></label>
         <button class="primary" type="submit" data-t="save"></button>
       </form>
@@ -136,7 +150,6 @@
     </section>
   </main>
 
-  <datalist id="collection-titles"></datalist>
   <script src="/static/i18n.js"></script>
   <script src="/static/app.js"></script>
 </body>

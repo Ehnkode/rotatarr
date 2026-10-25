@@ -78,3 +78,9 @@ def test_shuffle_skips_smart_and_hidden_collections():
     assert result.shuffled == 3
     assert result.smart_skipped == 2
     assert all(plex.sorts[c.rating_key] == "2" for c in cols[:3])
+
+
+def test_never_list_matches_exact_title_only():
+    cols = [Collection("1", "Matrix", 10, False), Collection("2", "Matrix Reloaded", 10, False)]
+    lib = LibrarySettings(never=["matrix"])
+    assert [c.title for c in build_pool(cols, lib)] == ["Matrix Reloaded"]
