@@ -52,7 +52,10 @@ class FakePlex:
         self.hub_list.insert(pos, h)
 
     def set_custom_sort(self, key):
-        self.sorts[key] = "2"
+        self.set_sort(key, "2")
+
+    def set_sort(self, key, sort):
+        self.sorts[key] = sort
 
     def move_item(self, key, item, after):
         self.calls.append(("move_item", key))

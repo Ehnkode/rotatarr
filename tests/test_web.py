@@ -5,8 +5,7 @@ from fastapi.testclient import TestClient
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("ROTATARR_CONFIG_DIR", str(tmp_path))
+def client(monkeypatch):
     monkeypatch.setenv("ROTATARR_DISABLE_SCHEDULER", "1")
     from rotatarr import config, runner, web
     importlib.reload(config)

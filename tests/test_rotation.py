@@ -84,3 +84,46 @@ def test_never_list_matches_exact_title_only():
     cols = [Collection("1", "Matrix", 10, False), Collection("2", "Matrix Reloaded", 10, False)]
     lib = LibrarySettings(never=["matrix"])
     assert [c.title for c in build_pool(cols, lib)] == ["Matrix Reloaded"]
+
+
+def test_seasonal_collection_only_in_season():
+    from datetime import date
+    from rotatarr.config import Seasonal
+    cols = make_collections(5) + [Collection("900", "Halloween", 20, False), Collection("901", "Christmas", 20, False)]
+    lib = LibrarySettings(recommended=3, home=0, shared=0, seasonal=[
+        Seasonal(title="Halloween", start="10-01", end="10-31"),
+        Seasonal(title="Christmas", start="12-01", end="01-06"),
+    ])
+    october = build_pool(cols, lib, date(2026, 10, 25))
+    assert "Halloween" in [c.title for c in october] and "Christmas" not in [c.title for c in october]
+    assert select(october, lib, random.Random(0))[0].title == "Halloween"
+    january = [c.title for c in build_pool(cols, lib, date(2027, 1, 3))]
+    assert "Christmas" in january and "Halloween" not in january
+
+
+def test_recent_collections_are_used_last():
+    cols = make_collections(10)
+    lib = LibrarySettings(recommended=5, home=0, shared=0)
+    recent = {c.rating_key for c in cols[:5]}
+    chosen = select(cols, lib, random.Random(0), recent)
+    assert not recent & {c.rating_key for c in chosen}
+    # with too few fresh collections the recent ones fill up
+    lib.recommended = 8
+    assert len(select(cols, lib, random.Random(0), recent)) == 8
+
+
+def test_reset_restores_rows_and_sorts():
+    from rotatarr import state
+    from rotatarr.rotation import restore_library
+    plex = FakePlex(make_collections(10))
+    before = [(h.identifier, h.visible) for h in plex.hub_list]
+    lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5)
+    rotate_library(plex, "1", "Movies", lib, Settings(), random.Random(1))
+    shuffle_library(plex, "1", "Movies", Settings(), random.Random(1))
+    rotate_library(plex, "1", "Movies", lib, Settings(), random.Random(2))
+    assert plex.sorts
+
+    restore_library(plex, "1", state.snapshot()["1"])
+    after = [(h.identifier, h.visible) for h in plex.hub_list if h.visible]
+    assert after == [b for b in before if b[1]]
+    assert set(plex.sorts.values()) == {"0"}

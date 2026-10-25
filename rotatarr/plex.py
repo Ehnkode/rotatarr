@@ -53,6 +53,7 @@ class Collection:
     title: str
     child_count: int
     smart: bool | None  # None when the list endpoint did not say
+    thumb: str = ""
 
 
 class PlexClient:
@@ -92,8 +93,13 @@ class PlexClient:
                 title=c.get("title", ""),
                 child_count=int(c.get("childCount", 0) or 0),
                 smart=None if smart is None else is_on(smart),
+                thumb=c.get("thumb", ""),
             ))
         return result
+
+    def raw_collections(self, sid: str) -> list[dict]:
+        return self._get(f"/library/sections/{sid}/collections",
+                         includeLabels=1).get("Metadata", [])
 
     # --- hubs (rows) ----------------------------------------------------------
 
@@ -126,6 +132,13 @@ class PlexClient:
         params = {"after": after} if after else {}
         self._send("PUT", f"/hubs/sections/{sid}/manage/{q}/move", **params)
 
+    def image(self, path: str, width: int, height: int) -> tuple[bytes, str]:
+        r = self.session.get(f"{self.url}/photo/:/transcode",
+                             params={"url": path, "width": width, "height": height, "minSize": 1},
+                             timeout=self.timeout)
+        r.raise_for_status()
+        return r.content, r.headers.get("Content-Type", "image/jpeg")
+
     # --- items inside a collection ------------------------------------------
 
     def collection_meta(self, rating_key: str) -> dict:
@@ -136,7 +149,11 @@ class PlexClient:
         return [str(i["ratingKey"]) for i in self._get(f"/library/collections/{rating_key}/children").get("Metadata", [])]
 
     def set_custom_sort(self, rating_key: str) -> None:
-        self._send("PUT", f"/library/metadata/{rating_key}/prefs", collectionSort=2)
+        self.set_sort(rating_key, "2")
+
+    def set_sort(self, rating_key: str, sort: str) -> None:
+        # 0 = release date, 1 = alphabetical, 2 = custom
+        self._send("PUT", f"/library/metadata/{rating_key}/prefs", collectionSort=sort)
 
     def move_item(self, rating_key: str, item: str, after: str | None) -> None:
         params = {"after": after} if after else {}

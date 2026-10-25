@@ -91,9 +91,12 @@ button.primary { background: var(--accent); color: var(--accent-text); border-co
 .schedule dt { color: var(--muted); }
 .schedule dd { margin: 0; }
 
-#rows { padding-left: 24px; margin: 10px 0 0; }
-#rows li { padding: 2px 0; }
+#rows { list-style: none; padding: 0; margin: 10px 0 0; counter-reset: row; }
+#rows li { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-top: 1px solid var(--border); counter-increment: row; }
+#rows li::before { content: counter(row); width: 22px; text-align: right; color: var(--muted); font-size: 13px; flex: none; }
 #rows li.builtin { color: var(--muted); }
+#rows .poster { width: 30px; height: 45px; border-radius: 3px; object-fit: cover; background: var(--bg); flex: none; }
+#rows .row-text { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; }
 .badge {
   font-size: 11px;
   border: 1px solid var(--border);
@@ -150,3 +153,24 @@ table.collections tr.always .coll-title { font-weight: 600; }
 .order-buttons button { padding: 2px 9px; }
 
 .form-save { padding-top: 12px; margin-top: 10px; border-top: 1px solid var(--border); }
+.season { margin-top: 4px; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.season select { width: auto; padding: 2px 4px; font-size: 13px; }
+.danger { border-color: color-mix(in srgb, var(--err) 45%, var(--border)); }
+.danger button { color: var(--err); border-color: color-mix(in srgb, var(--err) 45%, var(--border)); }
+
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand img { border-radius: 10px; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.tile { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; cursor: pointer; }
+.tile:hover { border-color: var(--accent); }
+.tile.off { opacity: .7; }
+.tile-head { display: flex; justify-content: space-between; align-items: center; }
+.pill { font-size: 12px; border-radius: 99px; padding: 1px 9px; background: var(--bg); color: var(--muted); }
+.pill.on { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+.tile-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 8px; }
+.tile-counts small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile-counts b { display: block; font-size: 22px; line-height: 1.1; }
+.tile-counts small { color: var(--muted); font-size: 12px; }
+.tile-foot { margin: 0; font-size: 12px; }
+.error-text { color: var(--err); }
