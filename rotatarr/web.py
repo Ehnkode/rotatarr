@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import __version__, config, plexauth, runner
+from . import __version__, config, plexauth, runner, state
 from .config import LibrarySettings
 from .plex import PlexClient
 
@@ -73,6 +73,7 @@ class SettingsIn(BaseModel):
     items_to_front: int | None = None
     pinned_rows: list[str] | None = None
     dry_run: bool | None = None
+    repeat_block_runs: int | None = None
 
 
 def _public_settings(s: config.Settings) -> dict:
@@ -192,14 +193,56 @@ def library_collections(sid: str):
     ]
 
 
+@app.get("/api/libraries/{sid}/diagnostics")
+def library_diagnostics(sid: str):
+    """What Plex reports about the collections, without image paths. Helps with bug reports."""
+    drop = {"thumb", "art", "composite", "key", "librarySectionKey", "Image"}
+    return [{k: v for k, v in c.items() if k not in drop} for c in _client().raw_collections(sid)]
+
+
 @app.get("/api/libraries/{sid}/rows")
 def library_rows(sid: str):
     """Current row order and visibility as Plex reports it."""
+    client = _client()
+    thumbs = {c.rating_key: c.thumb for c in client.collections(sid)}
     return [
         {"title": h.title, "identifier": h.identifier, "collection": h.collection_key is not None,
+         "thumb": thumbs.get(h.collection_key or "", ""),
          "recommended": h.recommended, "home": h.home, "shared": h.shared}
-        for h in _client().hubs(sid)
+        for h in client.hubs(sid)
     ]
+
+
+@app.get("/api/thumb")
+def thumb(path: str):
+    """Small poster from Plex, so the browser never needs the Plex token."""
+    if not path.startswith("/library/"):
+        raise HTTPException(400)
+    try:
+        content, media_type = _client().image(path, 120, 180)
+    except Exception as exc:
+        raise HTTPException(404) from exc
+    return Response(content, media_type=media_type, headers={"Cache-Control": "max-age=86400"})
+
+
+@app.get("/api/overview")
+def overview():
+    """Per library: is rotation on and how many collection rows are visible where."""
+    s = config.load()
+    client = _client()
+    result = []
+    for sec in client.sections():
+        if sec["type"] not in SUPPORTED_TYPES:
+            continue
+        rows = [h for h in client.hubs(sec["key"]) if h.collection_key]
+        lib = s.libraries.get(sec["key"], LibrarySettings())
+        result.append({
+            "key": sec["key"], "title": sec["title"], "enabled": lib.enabled,
+            "recommended": sum(h.recommended for h in rows),
+            "home": sum(h.home for h in rows),
+            "shared": sum(h.shared for h in rows),
+        })
+    return result
 
 
 @app.get("/api/builtin-rows")
@@ -239,9 +282,22 @@ def run_now(kind: str):
     return {"started": True}
 
 
+@app.post("/api/reset")
+def reset():
+    _client()
+    if _running:
+        raise HTTPException(409, "busy")
+    _running.add(runner.RESET)
+    try:
+        return runner.reset()
+    finally:
+        _running.discard(runner.RESET)
+
+
 @app.get("/api/state")
-def state():
-    return {"version": __version__, "running": sorted(_running), "next_run": scheduler.next_run}
+def app_state():
+    return {"version": __version__, "running": sorted(_running), "next_run": scheduler.next_run,
+            "can_reset": state.has_snapshot()}
 
 
 @app.get("/api/history")

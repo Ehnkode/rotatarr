@@ -6,6 +6,7 @@ import json
 import os
 import threading
 import uuid
+from datetime import date
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -22,6 +23,20 @@ class Quota(BaseModel):
     max: int = Field(ge=0)
 
 
+class Seasonal(BaseModel):
+    # Shown every run between start and end (MM-DD, the range may wrap over New Year),
+    # hidden the rest of the year.
+    title: str = Field(min_length=1)
+    start: str = Field(pattern=r"^\d{2}-\d{2}$")
+    end: str = Field(pattern=r"^\d{2}-\d{2}$")
+
+    def active(self, today: date) -> bool:
+        now = today.strftime("%m-%d")
+        if self.start <= self.end:
+            return self.start <= now <= self.end
+        return now >= self.start or now <= self.end
+
+
 class LibrarySettings(BaseModel):
     enabled: bool = False
     # How many collection rows are visible at once in each place.
@@ -34,6 +49,7 @@ class LibrarySettings(BaseModel):
     exclude: list[str] = Field(default_factory=list)
     always_visible: list[str] = Field(default_factory=list)
     never: list[str] = Field(default_factory=list)  # exact titles
+    seasonal: list[Seasonal] = Field(default_factory=list)
     quotas: list[Quota] = Field(default_factory=list)
     shuffle_order: bool = True
     shuffle_items: bool = True
@@ -49,6 +65,8 @@ class Settings(BaseModel):
     items_to_front: int = Field(default=20, ge=1)
     pinned_rows: list[str] = Field(default_factory=lambda: list(DEFAULT_PINNED_ROWS))
     dry_run: bool = False
+    # Collections shown in one of the last N runs are only picked again when nothing else is left.
+    repeat_block_runs: int = Field(default=2, ge=0)
     # Keyed by Plex section key (as a string).
     libraries: dict[str, LibrarySettings] = Field(default_factory=dict)
 

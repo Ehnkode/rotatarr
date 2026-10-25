@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass, field
 
+from . import state
 from .config import Settings
 from .plex import PlexClient, is_on
 
@@ -46,7 +47,9 @@ def shuffle_library(client: PlexClient, sid: str, title: str, settings: Settings
             res.shuffled += 1
             continue
         meta = meta or client.collection_meta(key)
-        if str(meta.get("collectionSort", "")) != "2":
+        current_sort = str(meta.get("collectionSort", "0"))
+        if current_sort != "2":
+            state.remember_sort(sid, key, current_sort)
             client.set_custom_sort(key)
         prev = None
         for item in rng.sample(items, min(settings.items_to_front, len(items))):

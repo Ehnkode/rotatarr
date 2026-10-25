@@ -10,27 +10,32 @@ from datetime import datetime, timezone
 
 from . import config
 from .plex import PlexClient
-from .rotation import rotate_library
+from . import state
+from .rotation import restore_library, rotate_library
 from .shuffle import shuffle_library
 
 log = logging.getLogger("rotatarr")
 
-HISTORY_FILE = config.CONFIG_DIR / "history.json"
 HISTORY_LIMIT = 50
 
 ROTATE = "rotate"
 SHUFFLE = "shuffle"
+RESET = "reset"
 
 _job_lock = threading.Lock()
 _history_lock = threading.Lock()
 
 
+def _history_file():
+    return config.CONFIG_DIR / "history.json"
+
+
 def load_history() -> list[dict]:
     with _history_lock:
-        if not HISTORY_FILE.exists():
+        if not _history_file().exists():
             return []
         try:
-            return json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+            return json.loads(_history_file().read_text(encoding="utf-8"))
         except ValueError:
             return []
 
@@ -40,7 +45,7 @@ def _append_history(entry: dict) -> None:
     with _history_lock:
         history.insert(0, entry)
         config.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        HISTORY_FILE.write_text(json.dumps(history[:HISTORY_LIMIT], indent=2), encoding="utf-8")
+        _history_file().write_text(json.dumps(history[:HISTORY_LIMIT], indent=2), encoding="utf-8")
 
 
 def client_for(settings: config.Settings) -> PlexClient:
@@ -88,6 +93,35 @@ def run_job(kind: str) -> dict:
     entry["seconds"] = round((datetime.now(timezone.utc) - started).total_seconds(), 1)
     for line in entry["lines"]:
         log.info("[%s] %s", kind, line)
+    _append_history(entry)
+    return entry
+
+
+def reset() -> dict:
+    """Undo everything: restore rows and sort settings, then switch all libraries off."""
+    settings = config.load()
+    entry = {"kind": RESET, "started": datetime.now(timezone.utc).isoformat(), "dry_run": False,
+             "ok": True, "lines": [], "results": []}
+    with _job_lock:
+        client = client_for(settings)
+        sections = {s["key"]: s["title"] for s in client.sections()}
+        for sid, snap in state.snapshot().items():
+            title = sections.get(sid, sid)
+            try:
+                changed = restore_library(client, sid, snap)
+                entry["lines"].append(f"{title}: restored, {changed} rows changed")
+                entry["results"].append({"library": title, "changed": changed})
+            except Exception as exc:
+                log.exception("reset failed for %s", title)
+                entry["ok"] = False
+                entry["lines"].append(f"{title}: {exc}")
+                entry["results"].append({"library": title, "error": str(exc)})
+        if entry["ok"]:
+            settings = config.load()
+            for lib in settings.libraries.values():
+                lib.enabled = False
+            config.save(settings)
+            state.clear_snapshot()
     _append_history(entry)
     return entry
 

@@ -9,9 +9,12 @@
 </head>
 <body>
   <header>
-    <div>
-      <h1>Rotatarr</h1>
-      <p class="muted" data-t="tagline"></p>
+    <div class="brand">
+      <img src="/static/icon.png" alt="" width="44" height="44">
+      <div>
+        <h1>Rotatarr</h1>
+        <p class="muted" data-t="tagline"></p>
+      </div>
     </div>
     <select id="lang" aria-label="Language">
       <option value="en">English</option>
@@ -34,6 +37,7 @@
         <p data-t="not_connected"></p>
         <button class="primary" data-goto="connection" data-t="go_connection"></button>
       </div>
+      <div id="overview" class="tiles"></div>
       <div class="card">
         <p id="dry-run-banner" class="warn" data-t="dry_run_active" hidden></p>
         <div class="actions">
@@ -119,9 +123,16 @@
           <p class="muted" data-t="pinned_hint"></p>
           <ul id="pinned-list" class="pinned"></ul>
         </div>
+        <label><span data-t="repeat_block"></span><input type="number" min="0" name="repeat_block_runs"></label>
+        <p class="muted" data-t="repeat_block_hint"></p>
         <label class="check"><input type="checkbox" name="dry_run"> <span data-t="dry_run"></span></label>
         <button class="primary" type="submit" data-t="save"></button>
       </form>
+      <div class="card danger" id="reset-card">
+        <h2 data-t="reset_title"></h2>
+        <p class="muted" data-t="reset_hint"></p>
+        <button type="button" id="reset" data-t="reset_button"></button>
+      </div>
       <div class="card notes">
         <p data-t="kometa_note"></p>
         <p data-t="smart_note"></p>
