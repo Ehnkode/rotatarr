@@ -252,7 +252,6 @@ async function fillLibraryForm() {
   });
   form.elements.automatic_max.value = s.automatic_max ?? "";
   collections = await api(`/api/libraries/${lib.key}/collections`).catch(() => []);
-  $("#collection-count").textContent = collections.length;
   renderCollections();
 }
 
@@ -605,8 +604,9 @@ async function init() {
   await loadLibraries();
   loadBuiltinRows();
   const start = location.hash.slice(1);
-  showTab(["status", "libraries", "settings", "connection"].includes(start) ? start
-    : (settings.connected ? "status" : "connection"));
+  // Until Plex is connected, every other tab is empty.
+  showTab(!settings.connected ? "connection"
+    : ["status", "libraries", "settings", "connection"].includes(start) ? start : "status");
   setInterval(() => { if (!$("#tab-status").hidden) refreshStatus(); }, 15000);
 }
 
