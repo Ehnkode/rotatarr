@@ -84,28 +84,28 @@
 
         <h3 data-t="which_collections"></h3>
         <p class="pool-summary" id="pool-summary"></p>
-        <label><span data-t="min_items"></span><input type="number" min="0" name="min_items"></label>
-        <p class="muted" data-t="min_items_hint"></p>
-        <label><span data-t="exclude"></span><textarea name="exclude" rows="2"></textarea></label>
-        <p class="muted" data-t="exclude_hint"></p>
-        <div class="field">
-          <span class="field-label" data-t="quotas"></span>
-          <p class="muted" data-t="quotas_hint"></p>
-          <div id="quota-rows"></div>
-          <button type="button" id="add-quota" data-t="quota_add"></button>
-        </div>
-        <div class="field" id="automatic-field" hidden>
-          <label><span data-t="automatic_max"></span><input type="number" min="0" name="automatic_max" data-t-placeholder="no_limit"></label>
-          <p class="muted" id="automatic-hint"></p>
-        </div>
+        <p class="muted" data-t="collections_hint"></p>
+        <input type="search" id="collection-filter" data-t-placeholder="collections_filter">
+        <table class="collections">
+          <tbody id="collections"></tbody>
+        </table>
 
-        <details id="collections-box">
-          <summary><span data-t="collections_title"></span> (<span id="collection-count"></span>)</summary>
-          <p class="muted" data-t="collections_hint"></p>
-          <input type="search" id="collection-filter" data-t-placeholder="collections_filter">
-          <table class="collections">
-            <tbody id="collections"></tbody>
-          </table>
+        <details id="advanced-rules">
+          <summary data-t="advanced_rules"></summary>
+          <label><span data-t="min_items"></span><input type="number" min="0" name="min_items"></label>
+          <p class="muted" data-t="min_items_hint"></p>
+          <label><span data-t="exclude"></span><textarea name="exclude" rows="2"></textarea></label>
+          <p class="muted" data-t="exclude_hint"></p>
+          <div class="field">
+            <span class="field-label" data-t="quotas"></span>
+            <p class="muted" data-t="quotas_hint"></p>
+            <div id="quota-rows"></div>
+            <button type="button" id="add-quota" data-t="quota_add"></button>
+          </div>
+          <div class="field" id="automatic-field" hidden>
+            <label><span data-t="automatic_max"></span><input type="number" min="0" name="automatic_max" data-t-placeholder="no_limit"></label>
+            <p class="muted" id="automatic-hint"></p>
+          </div>
         </details>
 
         <h3 data-t="shuffle_title"></h3>
