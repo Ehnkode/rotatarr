@@ -10,12 +10,24 @@ Plex shows the same collection rows in the same order every day. Rotatarr turns 
 - **Shuffles the row order.** Built-in rows such as *Continue Watching* or *Recently Added* stay on top.
 - **Shuffles the titles inside the rows,** so a row does not always start with the same posters.
 - **Works with any collections:** Kometa, Plex's automatic movie collections or your own.
-- **Rules:** minimum titles per collection, never show / always show lists, and limits per run (e.g. at most 10 rows from automatic movie collections, so they do not crowd out everything else).
-- Web UI in English and German, *Sign in with Plex*, run now buttons, test mode, current row overview and run log.
+- **Rules:** minimum titles per collection, never show / always show per collection, and limits per run (e.g. at most 10 rows from automatic movie collections, so they do not crowd out everything else).
+- **Seasonal collections:** show *Halloween* only in October or *Christmas* only in December, always and automatically.
+- **More variety:** collections shown in the last runs are paused, so the home screen really changes.
+- **Undo:** one button puts every row back the way it was before Rotatarr's first run.
+- Web UI in English and German, *Sign in with Plex*, run now buttons, test mode, current row overview with posters and run log.
 
 Rotatarr only changes visibility and order. It never deletes or edits collections.
 
 > Rotatarr is a community project and is not affiliated with or endorsed by Plex Inc. "Plex" is a trademark of Plex, Inc.
+
+<p align="center">
+  <img src="docs/screenshots/status.png" width="49%" alt="Status page with libraries and current rows">
+  <img src="docs/screenshots/library.png" width="49%" alt="Library settings with collection rules">
+</p>
+<p align="center">
+  <img src="docs/screenshots/settings.png" width="49%" alt="General settings">
+  <img src="docs/screenshots/phone.png" width="25%" alt="Status page on a phone in light mode">
+</p>
 
 **Privacy:** Rotatarr runs entirely on your own server. It talks only to your Plex Media Server and, for *Sign in with Plex*, to plex.tv. It has no telemetry and sends no data anywhere else. Your settings, including the Plex token, stay in `/config`.
 
