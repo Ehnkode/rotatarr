@@ -36,6 +36,10 @@ function notify(text, isError = false) {
   if (!isError) notify.timer = setTimeout(() => { el.textContent = ""; el.className = ""; }, 6000);
 }
 
+function format(template, values) {
+  return template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
+}
+
 function lines(text) { return text.split("\n").map((s) => s.trim()).filter(Boolean); }
 
 // --- tabs ----------------------------------------------------------------------
@@ -82,9 +86,12 @@ function renderHistory(history) {
     const head = document.createElement("div");
     head.className = "run-head";
     head.textContent = `${new Date(h.started).toLocaleString(lang)} · ${t(`kind_${h.kind}`)}`
-      + (h.dry_run ? " · test" : "") + (h.seconds !== undefined ? ` · ${h.seconds}s` : "");
+      + (h.dry_run ? ` · ${t("test")}` : "") + (h.seconds !== undefined ? ` · ${h.seconds}s` : "");
     div.appendChild(head);
-    h.lines.forEach((l) => { const p = document.createElement("div"); p.textContent = l; div.appendChild(p); });
+    const texts = h.results && h.results.length && h.lines.length === h.results.length
+      ? h.results.map((r) => (r.error ? `${r.library}: ${r.error}` : format(t(`log_${h.kind}`), r)))
+      : h.lines;
+    texts.forEach((l) => { const p = document.createElement("div"); p.textContent = l; div.appendChild(p); });
     box.appendChild(div);
   });
 }

@@ -29,6 +29,10 @@ class LibraryResult:
     moved: int = 0
     lines: list[str] = field(default_factory=list)
 
+    def summary(self) -> dict:
+        return {"library": self.title, "visible": self.visible, "pool": self.pool,
+                "changed": self.changed, "moved": self.moved}
+
 
 def _contains(title: str, words: list[str]) -> bool:
     t = title.lower()

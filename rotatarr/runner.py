@@ -52,7 +52,7 @@ def run_job(kind: str) -> dict:
     settings = config.load()
     started = datetime.now(timezone.utc)
     entry = {"kind": kind, "started": started.isoformat(), "dry_run": settings.dry_run,
-             "ok": True, "lines": []}
+             "ok": True, "lines": [], "results": []}
 
     if not settings.connected:
         entry.update(ok=False, lines=["Not connected to Plex"])
@@ -74,10 +74,12 @@ def run_job(kind: str) -> dict:
                     else:
                         continue
                     entry["lines"] += result.lines
+                    entry["results"].append(result.summary())
                 except Exception as exc:  # keep going with the next library
                     log.exception("%s failed for %s", kind, title)
                     entry["ok"] = False
                     entry["lines"].append(f"{title}: {exc}")
+                    entry["results"].append({"library": title, "error": str(exc)})
         except Exception as exc:
             log.exception("%s failed", kind)
             entry.update(ok=False)

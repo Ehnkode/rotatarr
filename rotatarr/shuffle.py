@@ -16,6 +16,9 @@ class ShuffleResult:
     smart_skipped: int = 0
     lines: list[str] = field(default_factory=list)
 
+    def summary(self) -> dict:
+        return {"library": self.title, "shuffled": self.shuffled, "smart_skipped": self.smart_skipped}
+
 
 def shuffle_library(client: PlexClient, sid: str, title: str, settings: Settings,
                     rng: random.Random | None = None) -> ShuffleResult:
