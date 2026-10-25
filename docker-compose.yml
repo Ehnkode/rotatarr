@@ -1,0 +1,14 @@
+services:
+  rotatarr:
+    image: ghcr.io/ehnkode/rotatarr:latest
+    container_name: rotatarr
+    ports:
+      - "7373:7373"
+    volumes:
+      - ./config:/config
+    environment:
+      - TZ=Europe/Berlin
+      # Optional: protect the web UI with a username and password
+      # - ROTATARR_USERNAME=admin
+      # - ROTATARR_PASSWORD=change-me
+    restart: unless-stopped

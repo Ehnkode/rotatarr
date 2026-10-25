@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rotatarr</title>
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Rotatarr</h1>
+      <p class="muted" data-t="tagline"></p>
+    </div>
+    <select id="lang" aria-label="Language">
+      <option value="en">English</option>
+      <option value="de">Deutsch</option>
+    </select>
+  </header>
+
+  <nav>
+    <button data-tab="status" data-t="tab_status"></button>
+    <button data-tab="libraries" data-t="tab_libraries"></button>
+    <button data-tab="settings" data-t="tab_settings"></button>
+    <button data-tab="connection" data-t="tab_connection"></button>
+  </nav>
+
+  <main>
+    <div id="notice"></div>
+
+    <section id="tab-status" hidden>
+      <div class="card" id="not-connected" hidden>
+        <p data-t="not_connected"></p>
+        <button class="primary" data-goto="connection" data-t="go_connection"></button>
+      </div>
+      <div class="card">
+        <p id="dry-run-banner" class="warn" data-t="dry_run_active" hidden></p>
+        <div class="actions">
+          <button class="primary" data-run="rotate" data-t="run_rotate"></button>
+          <button data-run="shuffle" data-t="run_shuffle"></button>
+        </div>
+        <dl class="schedule">
+          <dt data-t="next_rotate"></dt><dd id="next-rotate"></dd>
+          <dt data-t="next_shuffle"></dt><dd id="next-shuffle"></dd>
+        </dl>
+      </div>
+      <div class="card">
+        <h2 data-t="current_rows"></h2>
+        <p class="muted" data-t="rows_hint"></p>
+        <select id="rows-library"></select>
+        <ol id="rows"></ol>
+      </div>
+      <div class="card">
+        <h2 data-t="log"></h2>
+        <div id="history"></div>
+      </div>
+    </section>
+
+    <section id="tab-libraries" hidden>
+      <div class="card">
+        <label><span data-t="library"></span>
+          <select id="library-select"></select>
+        </label>
+      </div>
+      <form id="library-form" class="card" hidden>
+        <label class="check"><input type="checkbox" name="enabled"> <span data-t="enabled"></span></label>
+        <div class="grid3">
+          <label><span data-t="recommended"></span><input type="number" min="0" name="recommended"></label>
+          <label><span data-t="home"></span><input type="number" min="0" name="home"></label>
+          <label><span data-t="shared"></span><input type="number" min="0" name="shared"></label>
+        </div>
+        <p class="muted" data-t="counts_hint"></p>
+        <label><span data-t="min_items"></span><input type="number" min="0" name="min_items"></label>
+        <p class="muted" data-t="min_items_hint"></p>
+        <label><span data-t="exclude"></span><textarea name="exclude" rows="3"></textarea></label>
+        <p class="muted" data-t="exclude_hint"></p>
+        <label><span data-t="always_visible"></span><textarea name="always_visible" rows="3" list="collection-titles"></textarea></label>
+        <p class="muted" data-t="always_hint"></p>
+        <label><span data-t="quotas"></span><textarea name="quotas" rows="3"></textarea></label>
+        <p class="muted" data-t="quotas_hint"></p>
+        <label class="check"><input type="checkbox" name="shuffle_order"> <span data-t="shuffle_order"></span></label>
+        <label class="check"><input type="checkbox" name="shuffle_items"> <span data-t="shuffle_items"></span></label>
+        <button class="primary" type="submit" data-t="save"></button>
+        <details>
+          <summary><span id="collection-count"></span> <span data-t="collections_found"></span></summary>
+          <ul id="collections" class="columns"></ul>
+        </details>
+      </form>
+    </section>
+
+    <section id="tab-settings" hidden>
+      <form id="settings-form" class="card">
+        <label><span data-t="rotation_interval"></span><input type="number" min="0" name="rotation_interval_minutes"></label>
+        <label><span data-t="shuffle_interval"></span><input type="number" min="0" name="shuffle_interval_minutes"></label>
+        <p class="muted" data-t="interval_hint"></p>
+        <label><span data-t="items_to_front"></span><input type="number" min="1" name="items_to_front"></label>
+        <label><span data-t="pinned_rows"></span><textarea name="pinned_rows" rows="4"></textarea></label>
+        <p class="muted" data-t="pinned_hint"></p>
+        <label class="check"><input type="checkbox" name="dry_run"> <span data-t="dry_run"></span></label>
+        <button class="primary" type="submit" data-t="save"></button>
+      </form>
+      <div class="card notes">
+        <p data-t="kometa_note"></p>
+        <p data-t="smart_note"></p>
+      </div>
+    </section>
+
+    <section id="tab-connection" hidden>
+      <div class="card" id="connected-card" hidden>
+        <p><span data-t="connected_to"></span> <strong id="connected-url"></strong></p>
+        <button id="disconnect" data-t="disconnect"></button>
+      </div>
+      <div class="card">
+        <button class="primary" id="plex-login" data-t="sign_in_plex"></button>
+        <p id="plex-wait" class="muted" data-t="waiting_plex" hidden></p>
+        <div id="servers" hidden>
+          <h2 data-t="choose_server"></h2>
+          <ul id="server-list"></ul>
+        </div>
+      </div>
+      <form id="manual-form" class="card">
+        <h2 data-t="manual"></h2>
+        <label><span data-t="url"></span><input name="url" placeholder="http://192.168.1.10:32400" required></label>
+        <label><span data-t="token"></span><input name="token" type="password" required></label>
+        <button type="submit" data-t="connect"></button>
+      </form>
+    </section>
+  </main>
+
+  <datalist id="collection-titles"></datalist>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
