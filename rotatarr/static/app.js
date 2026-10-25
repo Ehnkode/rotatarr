@@ -142,7 +142,8 @@ async function fillLibraryForm() {
   for (const name of ["enabled", "shuffle_order", "shuffle_items"]) form.elements[name].checked = s[name];
   form.elements.exclude.value = s.exclude.join("\n");
   form.elements.always_visible.value = s.always_visible.join("\n");
-  form.elements.quotas.value = s.quotas.map((q) => `${q.match} = ${q.max}`).join("\n");
+  $("#quota-rows").innerHTML = "";
+  s.quotas.forEach(addQuotaRow);
 
   const collections = await api(`/api/libraries/${lib.key}/collections`).catch(() => []);
   $("#collection-count").textContent = collections.length;
@@ -155,14 +156,28 @@ async function fillLibraryForm() {
   });
 }
 
+function addQuotaRow(quota = { match: "", max: 10 }) {
+  const row = document.createElement("div");
+  row.className = "quota-row";
+  row.innerHTML = `<input class="quota-match" type="text"><input class="quota-max" type="number" min="0"><button type="button" class="quota-remove">×</button>`;
+  row.querySelector(".quota-match").value = quota.match;
+  row.querySelector(".quota-match").placeholder = t("quota_match");
+  row.querySelector(".quota-match").setAttribute("aria-label", t("quota_match"));
+  row.querySelector(".quota-max").value = quota.max;
+  row.querySelector(".quota-max").setAttribute("aria-label", t("quota_max"));
+  row.querySelector(".quota-remove").title = t("quota_remove");
+  row.querySelector(".quota-remove").onclick = () => row.remove();
+  $("#quota-rows").appendChild(row);
+}
+
 async function saveLibrary(ev) {
   ev.preventDefault();
   const form = ev.target;
   const key = $("#library-select").value;
-  const quotas = lines(form.elements.quotas.value).map((l) => {
-    const [match, max] = l.split("=");
-    return { match: (match || "").trim(), max: parseInt(max, 10) || 0 };
-  }).filter((q) => q.match);
+  const quotas = [...document.querySelectorAll(".quota-row")].map((row) => ({
+    match: row.querySelector(".quota-match").value.trim(),
+    max: parseInt(row.querySelector(".quota-max").value, 10),
+  })).filter((q) => q.match && q.max >= 0);
   const body = {
     enabled: form.elements.enabled.checked,
     recommended: +form.elements.recommended.value,
@@ -305,6 +320,7 @@ async function init() {
   $("#library-select").addEventListener("change", fillLibraryForm);
   $("#rows-library").addEventListener("change", renderRows);
   $("#library-form").addEventListener("submit", saveLibrary);
+  $("#add-quota").addEventListener("click", () => addQuotaRow());
   $("#settings-form").addEventListener("submit", saveSettings);
   $("#manual-form").addEventListener("submit", connectManual);
   $("#plex-login").addEventListener("click", plexLogin);

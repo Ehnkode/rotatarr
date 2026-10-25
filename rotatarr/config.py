@@ -18,7 +18,7 @@ DEFAULT_PINNED_ROWS = ["inprogress", "ondeck", "recentlyreleased", "recentlyadde
 
 class Quota(BaseModel):
     # Collections whose title contains `match` (case-insensitive) share this limit per run.
-    match: str
+    match: str = Field(min_length=1)
     max: int = Field(ge=0)
 
 
