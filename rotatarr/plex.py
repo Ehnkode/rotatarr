@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import time
 import urllib.parse
 from dataclasses import dataclass
 
@@ -12,6 +14,9 @@ from . import __version__
 PRODUCT = "Rotatarr"
 FLAGS = ("promotedToRecommended", "promotedToOwnHome", "promotedToSharedHome")
 COLLECTION_HUB_PREFIX = "custom.collection."
+RETRIES = 3  # attempts per request; Plex can be slow while it scans or Kometa runs
+
+log = logging.getLogger(__name__)
 
 
 def is_on(value) -> bool:
@@ -64,14 +69,27 @@ class PlexClient:
         self.session.headers["X-Plex-Token"] = token
         self.timeout = timeout
 
+    def _request(self, method: str, path: str, params: dict) -> requests.Response:
+        # POST creates a row, so a retry after a timeout could create it twice.
+        attempts = 1 if method == "POST" else RETRIES
+        for attempt in range(1, attempts + 1):
+            try:
+                r = self.session.request(method, f"{self.url}{path}", params=params, timeout=self.timeout)
+            except (requests.Timeout, requests.ConnectionError) as e:
+                if attempt == attempts:
+                    raise
+                log.warning("Plex did not answer %s %s (%s), retrying", method, path, type(e).__name__)
+                time.sleep(2 * attempt)
+                continue
+            r.raise_for_status()
+            return r
+        raise AssertionError("unreachable")
+
     def _get(self, path: str, **params) -> dict:
-        r = self.session.get(f"{self.url}{path}", params=params, timeout=self.timeout)
-        r.raise_for_status()
-        return r.json().get("MediaContainer", {})
+        return self._request("GET", path, params).json().get("MediaContainer", {})
 
     def _send(self, method: str, path: str, **params) -> None:
-        r = self.session.request(method, f"{self.url}{path}", params=params, timeout=self.timeout)
-        r.raise_for_status()
+        self._request(method, path, params)
 
     # --- server / libraries -------------------------------------------------
 
