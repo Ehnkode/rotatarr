@@ -1,5 +1,8 @@
 import random
 
+import pytest
+
+from rotatarr import rotation
 from rotatarr.config import LibrarySettings, Quota, Settings
 from rotatarr.plex import Collection
 from rotatarr.plex import Hub
@@ -7,6 +10,11 @@ from rotatarr.rotation import build_pool, order_hubs, rotate_library, select, sp
 from rotatarr.shuffle import shuffle_library
 
 from .fakeplex import FakePlex, make_collections
+
+
+@pytest.fixture(autouse=True)
+def no_waiting(monkeypatch):
+    monkeypatch.setattr(rotation.time, "sleep", lambda s: None)
 
 
 def visible_collection_hubs(plex):
@@ -136,6 +144,20 @@ def test_pinned_rows_reach_the_top_when_plex_ignores_moves_to_the_top():
             assert flags == sorted(flags, reverse=True)
 
 
+class BusyPlex(FakePlex):
+    """A Plex that ignores the first moves, as while it is still busy with other changes."""
+
+    def __init__(self, collections, busy_moves):
+        super().__init__(collections)
+        self.busy_moves = busy_moves
+
+    def move_hub(self, sid, ident, after):
+        if self.busy_moves:
+            self.busy_moves -= 1
+            return
+        super().move_hub(sid, ident, after)
+
+
 class MovesIgnored(FakePlex):
     """A Plex that answers moves with OK but never changes the order."""
 
@@ -143,12 +165,19 @@ class MovesIgnored(FakePlex):
         self.calls.append(("move", ident))
 
 
-def test_no_second_round_of_moves_when_plex_ignores_them():
+def test_order_is_tried_again_while_plex_is_busy():
+    plex = BusyPlex(make_collections(10), busy_moves=5)
+    lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5)
+    rotate_library(plex, "1", "Movies", lib, Settings(pinned_rows=["recentlyadded"]), random.Random(0))
+    assert plex.hub_list[0].identifier == "hub.movie.recentlyadded"
+
+
+def test_moves_stop_after_a_few_attempts_when_plex_ignores_them():
     plex = MovesIgnored(make_collections(10))
     lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5)
     rotate_library(plex, "1", "Movies", lib, Settings(pinned_rows=["recentlyadded"]), random.Random(0))
     moves = [c for c in plex.calls if c[0] == "move"]
-    assert len(moves) == len([h for h in plex.hub_list if h.visible])
+    assert 0 < len(moves) <= rotation.ORDER_ATTEMPTS * len(plex.hub_list)
 
 
 def test_rows_are_never_moved_to_the_top_directly():
