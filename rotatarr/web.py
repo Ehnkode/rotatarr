@@ -17,6 +17,7 @@ from pydantic import BaseModel, ValidationError
 from . import __version__, config, notify, plexauth, runner, state
 from .config import LibrarySettings
 from .plex import PlexClient
+from .rotation import builtin_key
 
 STATIC = Path(__file__).parent / "static"
 SUPPORTED_TYPES = ("movie", "show")
@@ -289,7 +290,7 @@ def builtin_rows():
         for h in client.hubs(sec["key"]):
             if h.collection_key is not None:
                 continue
-            key = h.identifier.rsplit(".", 1)[-1].lower()
+            key = builtin_key(h.identifier)
             if key and not key.isdigit():
                 rows.setdefault(key, h.title)
     return [{"key": k, "title": t} for k, t in rows.items()]
