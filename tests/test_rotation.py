@@ -2,7 +2,8 @@ import random
 
 from rotatarr.config import LibrarySettings, Quota, Settings
 from rotatarr.plex import Collection
-from rotatarr.rotation import build_pool, rotate_library, select
+from rotatarr.plex import Hub
+from rotatarr.rotation import build_pool, order_hubs, rotate_library, select, spread
 from rotatarr.shuffle import shuffle_library
 
 from .fakeplex import FakePlex, make_collections
@@ -84,6 +85,16 @@ def test_pinned_rows_are_shown_everywhere():
     assert flags["hub.movie.topunwatched"] == (True, False, False)  # not pinned: left alone
 
 
+def test_pinned_rows_come_back_to_recommended():
+    plex = FakePlex(make_collections(10))
+    row = next(h for h in plex.hub_list if h.identifier == "hub.movie.recentlyadded")
+    row.recommended = row.home = False
+    lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5)
+    settings = Settings(pinned_rows=["recentlyadded"], pinned_home=False, pinned_shared=True)
+    rotate_library(plex, "1", "Movies", lib, settings, random.Random(0))
+    assert (row.recommended, row.home, row.shared) == (True, False, True)
+
+
 def test_pinned_rows_home_and_friends_are_separate():
     plex = FakePlex(make_collections(10))
     for h in plex.hub_list:
@@ -93,6 +104,53 @@ def test_pinned_rows_home_and_friends_are_separate():
     rotate_library(plex, "1", "Movies", lib, settings, random.Random(0))
     h = next(h for h in plex.hub_list if h.identifier == "hub.movie.recentlyadded")
     assert (h.recommended, h.home, h.shared) == (True, True, False)
+
+
+def test_pinned_rows_go_on_top_without_shuffling():
+    plex = FakePlex(make_collections(10))
+    plex.move_hub(None, "hub.movie.recentlyadded", plex.hub_list[-1].identifier)
+    lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5, shuffle_order=False)
+    rotate_library(plex, "1", "Movies", lib, Settings(pinned_rows=["recentlyadded"]), random.Random(0))
+    assert plex.hub_list[0].identifier == "hub.movie.recentlyadded"
+
+
+class TopMoveIgnored(FakePlex):
+    """A Plex that ignores moves to the top."""
+
+    def move_hub(self, sid, ident, after):
+        if after is not None:
+            super().move_hub(sid, ident, after)
+
+
+def test_pinned_rows_reach_the_top_when_plex_ignores_moves_to_the_top():
+    plex = TopMoveIgnored(make_collections(10))
+    plex.hub_list.insert(0, Hub("custom.collection.1.999", "Hidden", False, False, False))
+    FakePlex.move_hub(plex, None, "hub.movie.recentlyadded", plex.hub_list[-1].identifier)
+    for shuffle in (True, False):
+        lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5, shuffle_order=shuffle)
+        rotate_library(plex, "1", "Movies", lib, Settings(pinned_rows=["recentlyadded"]), random.Random(0))
+        assert plex.hub_list[0].identifier == "hub.movie.recentlyadded"
+
+
+def test_spread_keeps_similar_rows_apart():
+    ids = [f"a{i}" for i in range(10)] + [f"b{i}" for i in range(10)] + [f"c{i}" for i in range(5)]
+    kinds = {i: i[0] for i in ids}
+    for seed in range(20):
+        order = spread(ids, kinds, random.Random(seed))
+        assert sorted(order) == sorted(ids)
+        assert all(kinds[x] != kinds[y] for x, y in zip(order, order[1:]))
+
+
+def test_order_spreads_series_and_name_groups():
+    hubs = [Hub(f"custom.collection.1.{i}", f"Best of {1950 + 10 * i}s", True, False, False) for i in range(5)]
+    hubs += [Hub(f"custom.collection.1.{10 + i}", f"Saga {i}", True, False, False) for i in range(5)]
+    hubs += [Hub(f"custom.collection.1.{20 + i}", f"Genre {i}", True, False, False) for i in range(10)]
+    automatic = {str(10 + i) for i in range(5)}
+    titles = {h.identifier: h for h in hubs}
+    for seed in range(20):
+        order = order_hubs(hubs, {}, [], random.Random(seed), automatic)
+        kinds = ["auto" if titles[i].collection_key in automatic else titles[i].title.split()[0] for i in order]
+        assert not any(a == b and a != "Genre" for a, b in zip(kinds, kinds[1:]))
 
 
 def test_dry_run_changes_nothing():
