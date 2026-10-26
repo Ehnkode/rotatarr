@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import random
 import re
 from dataclasses import dataclass, field
@@ -10,6 +11,8 @@ from datetime import date
 from . import state
 from .config import LibrarySettings, Settings, pattern_of
 from .plex import Collection, Hub, PlexClient
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -165,8 +168,47 @@ def pinned_hubs(hubs: list[Hub], pinned: list[str]) -> list[str]:
     return top
 
 
-def order_hubs(hubs: list[Hub], placed: dict[str, Placement], pinned: list[str], rng: random.Random) -> list[str]:
-    """Target order for the visible rows: pinned built-in rows first, the rest shuffled.
+def kind_of(hub: Hub, automatic: set[str]) -> str:
+    """Rough kind of a row, so similar rows can be spread out: all of Plex's automatic
+    collections are one kind, otherwise the first word ("Best of 1980s", "Best of 1990s")."""
+    key = hub.collection_key
+    if key is None:
+        return "*builtin"
+    if key in automatic:
+        return "*automatic"
+    words = re.findall(r"[^\W\d_]+", hub.title.lower())
+    return words[0] if words else ""
+
+
+def spread(ids: list[str], kinds: dict[str, str], rng: random.Random) -> list[str]:
+    """Random order with rows of the same kind spread evenly over the whole list.
+
+    Each kind's rows get evenly spaced, slightly jittered places (2 of 10 rows near 25 % and 75 %),
+    then rows that still follow one of the same kind swap with the next row of another kind.
+    If one kind is more than half of all rows, some of them have to follow each other.
+    """
+    groups: dict[str, list[str]] = {}
+    for i in ids:
+        groups.setdefault(kinds[i], []).append(i)
+    placed: list[tuple[float, str]] = []
+    for g in groups.values():
+        rng.shuffle(g)
+        placed += [((n + rng.random()) / len(g), i) for n, i in enumerate(g)]
+    order = [i for _, i in sorted(placed)]
+    if max((len(g) for g in groups.values()), default=0) * 2 > len(order) + 1:
+        return order  # no order without neighbours of one kind; the even spacing is the best we can do
+    for n in range(1, len(order)):
+        if kinds[order[n]] == kinds[order[n - 1]]:
+            swap = next((m for m in range(n + 1, len(order)) if kinds[order[m]] != kinds[order[n - 1]]), None)
+            if swap is not None:
+                order[n], order[swap] = order[swap], order[n]
+    return order
+
+
+def order_hubs(hubs: list[Hub], placed: dict[str, Placement], pinned: list[str], rng: random.Random,
+               automatic: set[str] | None = None, trust_plex: bool = True) -> list[str]:
+    """Target order for the visible rows: pinned built-in rows first, the rest shuffled with
+    similar rows spread out.
 
     Hidden rows are left alone; they end up below the visible ones.
     """
@@ -175,12 +217,14 @@ def order_hubs(hubs: list[Hub], placed: dict[str, Placement], pinned: list[str],
     def will_be_visible(h: Hub) -> bool:
         key = h.collection_key
         if key is not None:
-            return key in placed and placed[key].visible
+            # A row Plex still shows although it was hidden (e.g. Kometa sets it visible again)
+            # is shuffled with the rest instead of piling up at the bottom.
+            return (key in placed and placed[key].visible) or (trust_plex and h.visible)
         return h.visible
 
-    rest = [h.identifier for h in hubs if h.identifier not in top and will_be_visible(h)]
-    rng.shuffle(rest)
-    return top + rest
+    rest = [h for h in hubs if h.identifier not in top and will_be_visible(h)]
+    kinds = {h.identifier: kind_of(h, automatic or set()) for h in rest}
+    return top + spread([h.identifier for h in rest], kinds, rng)
 
 
 def rotate_library(client: PlexClient, sid: str, title: str, lib: LibrarySettings, settings: Settings,
@@ -189,7 +233,9 @@ def rotate_library(client: PlexClient, sid: str, title: str, lib: LibrarySetting
     dry = settings.dry_run
     res = LibraryResult(title=title)
 
-    pool = build_pool(client.collections(sid), lib)
+    collections = client.collections(sid)
+    automatic = {c.rating_key for c in collections if c.automatic}
+    pool = build_pool(collections, lib)
     selection = select(pool, lib, rng, state.recent(sid, settings.repeat_block_runs))
     selection = rank_for_home(selection, lib)
     placed = placements(selection, lib)
@@ -230,8 +276,15 @@ def rotate_library(client: PlexClient, sid: str, title: str, lib: LibrarySetting
 
     # 2) Order.
     if lib.shuffle_order:
-        hubs = client.hubs(sid) if not dry else hubs
-        target = order_hubs(hubs, placed, settings.pinned_rows, rng)
+        if not dry:
+            hubs = client.hubs(sid)
+            stuck = [h.title for h in hubs if h.collection_key and h.visible
+                     and not (h.collection_key in placed and placed[h.collection_key].visible)]
+            if stuck:
+                log.warning("%s: %d rows are still visible although Rotatarr hid them, e.g. %s. "
+                            "Does Kometa set visible_* for them?", title, len(stuck), ", ".join(stuck[:5]))
+        # A dry run did not hide anything, so Plex's flags still show the old selection.
+        target = order_hubs(hubs, placed, settings.pinned_rows, rng, automatic, trust_plex=not dry)
         if dry:
             # Newly created rows are not in `hubs` yet during a dry run.
             known = {h.identifier for h in hubs}

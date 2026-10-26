@@ -2,7 +2,8 @@ import random
 
 from rotatarr.config import LibrarySettings, Quota, Settings
 from rotatarr.plex import Collection
-from rotatarr.rotation import build_pool, rotate_library, select
+from rotatarr.plex import Hub
+from rotatarr.rotation import build_pool, order_hubs, rotate_library, select, spread
 from rotatarr.shuffle import shuffle_library
 
 from .fakeplex import FakePlex, make_collections
@@ -93,6 +94,27 @@ def test_pinned_rows_home_and_friends_are_separate():
     rotate_library(plex, "1", "Movies", lib, settings, random.Random(0))
     h = next(h for h in plex.hub_list if h.identifier == "hub.movie.recentlyadded")
     assert (h.recommended, h.home, h.shared) == (True, True, False)
+
+
+def test_spread_keeps_similar_rows_apart():
+    ids = [f"a{i}" for i in range(10)] + [f"b{i}" for i in range(10)] + [f"c{i}" for i in range(5)]
+    kinds = {i: i[0] for i in ids}
+    for seed in range(20):
+        order = spread(ids, kinds, random.Random(seed))
+        assert sorted(order) == sorted(ids)
+        assert all(kinds[x] != kinds[y] for x, y in zip(order, order[1:]))
+
+
+def test_order_spreads_series_and_name_groups():
+    hubs = [Hub(f"custom.collection.1.{i}", f"Best of {1950 + 10 * i}s", True, False, False) for i in range(5)]
+    hubs += [Hub(f"custom.collection.1.{10 + i}", f"Saga {i}", True, False, False) for i in range(5)]
+    hubs += [Hub(f"custom.collection.1.{20 + i}", f"Genre {i}", True, False, False) for i in range(10)]
+    automatic = {str(10 + i) for i in range(5)}
+    titles = {h.identifier: h for h in hubs}
+    for seed in range(20):
+        order = order_hubs(hubs, {}, [], random.Random(seed), automatic)
+        kinds = ["auto" if titles[i].collection_key in automatic else titles[i].title.split()[0] for i in order]
+        assert not any(a == b and a != "Genre" for a, b in zip(kinds, kinds[1:]))
 
 
 def test_dry_run_changes_nothing():
