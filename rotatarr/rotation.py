@@ -227,6 +227,25 @@ def order_hubs(hubs: list[Hub], placed: dict[str, Placement], pinned: list[str],
     return top + spread([h.identifier for h in rest], kinds, rng)
 
 
+def keep_on_top(client: PlexClient, sid: str, target: list[str]) -> None:
+    """Make sure the ordered rows really start at the top.
+
+    Plex does not always move a row to the top when it is moved without "after". Rows that are
+    still above the ordered ones are moved below them instead.
+    """
+    ids = [h.identifier for h in client.hubs(sid)]
+    if target[0] not in ids:
+        return
+    above = [i for i in ids[:ids.index(target[0])] if i not in target]
+    if not above:
+        return
+    log.info("Moving %d rows below the pinned rows because Plex kept them on top", len(above))
+    prev = target[-1]
+    for ident in above:
+        client.move_hub(sid, ident, prev)
+        prev = ident
+
+
 def rotate_library(client: PlexClient, sid: str, title: str, lib: LibrarySettings, settings: Settings,
                    rng: random.Random | None = None) -> LibraryResult:
     rng = rng or random.Random()
@@ -275,10 +294,11 @@ def rotate_library(client: PlexClient, sid: str, title: str, lib: LibrarySetting
             if not dry:
                 client.set_visibility(sid, ident, True, home, shared)
 
-    # 2) Order.
+    # 2) Order. Pinned rows go on top even when the order is not shuffled.
+    if not dry:
+        hubs = client.hubs(sid)
     if lib.shuffle_order:
         if not dry:
-            hubs = client.hubs(sid)
             stuck = [h.title for h in hubs if h.collection_key and h.visible
                      and not (h.collection_key in placed and placed[h.collection_key].visible)]
             if stuck:
@@ -291,12 +311,16 @@ def rotate_library(client: PlexClient, sid: str, title: str, lib: LibrarySetting
             known = {h.identifier for h in hubs}
             target += [f"custom.collection.{sid}.{k}" for k, p in placed.items()
                        if p.visible and f"custom.collection.{sid}.{k}" not in known]
-        prev = None
-        for ident in target:
-            if not dry:
-                client.move_hub(sid, ident, prev)
-            prev = ident
-        res.moved = len(target)
+    else:
+        target = pinned_hubs(hubs, settings.pinned_rows)
+    prev = None
+    for ident in target:
+        if not dry:
+            client.move_hub(sid, ident, prev)
+        prev = ident
+    if target and not dry:
+        keep_on_top(client, sid, target)
+    res.moved = len(target)
 
     res.lines.append(f"{title}: {res.visible} of {res.pool} collections visible, "
                      f"{res.changed} rows changed, {res.moved} rows ordered")
