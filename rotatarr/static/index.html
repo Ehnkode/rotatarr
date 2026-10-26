@@ -44,10 +44,16 @@
         <div class="card countdown-card">
           <div class="eyebrow" data-t="next_change_in"></div>
           <div id="countdown" class="countdown">--:--:--</div>
-          <dl class="schedule">
-            <dt data-t="next_rotate"></dt><dd id="next-rotate"></dd>
-            <dt data-t="next_shuffle"></dt><dd id="next-shuffle"></dd>
-          </dl>
+          <div class="bars">
+            <div class="progress" id="progress-rotate">
+              <div class="progress-label"><span data-t="kind_rotate"></span><span class="progress-times"></span></div>
+              <div class="progress-track"><div class="progress-fill"></div></div>
+            </div>
+            <div class="progress" id="progress-shuffle">
+              <div class="progress-label"><span data-t="kind_shuffle"></span><span class="progress-times"></span></div>
+              <div class="progress-track"><div class="progress-fill"></div></div>
+            </div>
+          </div>
           <div class="actions">
             <button class="primary" data-run="rotate" data-t="run_rotate"></button>
             <button data-run="shuffle" data-t="run_shuffle"></button>
@@ -55,18 +61,12 @@
         </div>
         <div id="overview" class="tiles"></div>
       </div>
-      <div class="card">
-        <div class="card-head">
-          <h2 data-t="today"></h2>
-          <span class="muted" id="daybar-hint"></span>
-        </div>
-        <div id="daybar" class="daybar" aria-hidden="true"></div>
-        <div class="daybar-scale" aria-hidden="true"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
-        <div class="daybar-legend muted"><span class="key rotate"></span><span data-t="kind_rotate"></span><span class="key shuffle"></span><span data-t="kind_shuffle"></span></div>
-      </div>
       <div class="section-head">
         <h2 data-t="on_air"></h2>
-        <div id="rows-library" class="segmented" role="group" data-t-label="library"></div>
+        <div class="section-tools">
+          <button type="button" class="link-button" id="on-air-toggle" data-expand="on-air" hidden></button>
+          <div id="rows-library" class="segmented" role="group" data-t-label="library"></div>
+        </div>
       </div>
       <div id="on-air" class="posters"></div>
       <div class="split">
@@ -74,10 +74,12 @@
           <h2 data-t="current_rows"></h2>
           <p class="muted" data-t="rows_hint"></p>
           <div class="guide-scroll"><div id="guide" class="guide"></div></div>
+          <button type="button" class="more" data-expand="guide" hidden></button>
         </div>
         <aside class="card log">
           <h2 data-t="log"></h2>
           <div id="history"></div>
+          <button type="button" class="more" data-expand="history" hidden></button>
         </aside>
       </div>
     </section>
@@ -111,7 +113,7 @@
           <tbody id="collections"></tbody>
         </table>
 
-        <details id="advanced-rules">
+        <details id="advanced-rules" open>
           <summary data-t="advanced_rules"></summary>
           <label><span data-t="min_items"></span><input type="number" min="0" name="min_items"></label>
           <p class="muted" data-t="min_items_hint"></p>

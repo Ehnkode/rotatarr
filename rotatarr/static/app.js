@@ -91,10 +91,16 @@ function showTab(name) {
 const CHANNELS = [["recommended", "badge_rec"], ["home", "badge_home"], ["shared", "badge_shared"]];
 let nextRun = { rotate: null, shuffle: null };
 let rowsLibrary = "";
+let lastHistory = [];
+let lastRows = [];
+// Long lists start short; "show all" is remembered until the page is reloaded.
+const expanded = new Set();
+const SHORT = { guide: 10, history: 5 };
 
-function formatNext(ts) {
-  if (!ts) return t("manual_only");
-  return new Date(ts * 1000).toLocaleString(lang);
+function setMore(name, total, limit) {
+  const button = document.querySelector(`[data-expand="${name}"]`);
+  button.hidden = total <= limit;
+  button.textContent = expanded.has(name) ? t("show_less") : format(t("show_all"), { n: total });
 }
 
 function el(tag, className, text) {
@@ -117,6 +123,7 @@ function posterImage(row, className) {
 }
 
 function tickCountdown() {
+  renderProgress();
   const box = $("#countdown");
   if (!nextRun.rotate) { box.textContent = t("manual_only"); box.classList.add("idle"); return; }
   box.classList.remove("idle");
@@ -130,9 +137,6 @@ async function refreshStatus() {
   try {
     const state = await api("/api/state");
     nextRun = state.next_run;
-    $("#next-rotate").textContent = formatNext(nextRun.rotate);
-    $("#next-shuffle").textContent = formatNext(nextRun.shuffle);
-    tickCountdown();
     document.querySelectorAll("[data-run]").forEach((b) => {
       const busy = state.running.includes(b.dataset.run);
       b.disabled = busy || !settings.connected;
@@ -140,37 +144,32 @@ async function refreshStatus() {
     });
   } catch (e) { /* server restarting */ }
   const history = await api("/api/history").catch(() => []);
+  lastHistory = history;
+  tickCountdown();
   renderHistory(history);
-  renderDaybar(history);
   renderOverview(history);
   if (settings.connected) await renderRows();
 }
 
-// Today's runs as marks on a 24-hour bar: past ones from the log, upcoming ones from the schedule.
-function renderDaybar(history) {
-  const bar = $("#daybar");
-  bar.innerHTML = "";
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const day = 24 * 3600 * 1000;
-  const place = (time, className) => {
-    const offset = time - start.getTime();
-    if (offset < 0 || offset >= day) return;
-    const mark = el("span", className);
-    mark.style.left = `${(offset / day) * 100}%`;
-    bar.appendChild(mark);
-  };
-  history.forEach((h) => {
-    if (h.kind === "rotate" || h.kind === "shuffle") place(new Date(h.started).getTime(), `mark ${h.kind} past${h.ok ? "" : " failed"}`);
-  });
+// One bar per job: how far it is from the last run to the next one.
+function renderProgress() {
+  const clock = (ms) => new Date(ms).toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit" });
   for (const [kind, minutes] of [["rotate", settings.rotation_interval_minutes], ["shuffle", settings.shuffle_interval_minutes]]) {
-    const every = minutes * 60 * 1000;
-    if (!nextRun[kind] || !every) continue;
-    for (let time = nextRun[kind] * 1000; time < start.getTime() + day; time += every) place(time, `mark ${kind} next`);
+    const box = $(`#progress-${kind}`);
+    const next = nextRun[kind] ? nextRun[kind] * 1000 : 0;
+    const fill = box.querySelector(".progress-fill");
+    if (!next) {
+      box.querySelector(".progress-times").textContent = t("manual_only");
+      fill.style.width = "0";
+      continue;
+    }
+    const ran = lastHistory.find((h) => h.kind === kind);
+    let last = ran ? new Date(ran.started).getTime() : next - minutes * 60 * 1000;
+    if (!(last < next)) last = next - minutes * 60 * 1000;
+    const share = Math.min(1, Math.max(0, (Date.now() - last) / (next - last)));
+    fill.style.width = `${share * 100}%`;
+    box.querySelector(".progress-times").textContent = `${clock(last)} → ${clock(next)}`;
   }
-  place(Date.now(), "now");
-  const minutes = settings.rotation_interval_minutes;
-  $("#daybar-hint").textContent = minutes ? format(t("every_minutes"), { n: minutes }) : t("manual_only");
 }
 
 function renderHistory(history) {
@@ -178,7 +177,9 @@ function renderHistory(history) {
   box.innerHTML = "";
   if (!history.length) { box.textContent = t("no_runs"); return; }
   const today = new Date().toDateString();
-  history.slice(0, 15).forEach((h) => {
+  const shown = Math.min(history.length, 15);
+  setMore("history", shown, SHORT.history);
+  history.slice(0, expanded.has("history") ? shown : SHORT.history).forEach((h) => {
     const started = new Date(h.started);
     const div = el("div", `run ${h.ok ? "" : "failed"}`);
     const time = started.toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit" });
@@ -211,12 +212,21 @@ function renderLibraryButtons() {
 
 async function renderRows() {
   if (!rowsLibrary) return;
-  const rows = await api(`/api/libraries/${rowsLibrary}/rows`).catch(() => []);
-  const visible = rows.filter((r) => r.recommended || r.home || r.shared);
+  lastRows = await api(`/api/libraries/${rowsLibrary}/rows`).catch(() => []);
+  drawRows();
+}
 
+function drawRows() {
+  const visible = lastRows.filter((r) => r.recommended || r.home || r.shared);
+
+  // One scrolling row like in Plex; "show all" wraps it into a grid.
   const wall = $("#on-air");
   wall.innerHTML = "";
   const collections = visible.filter((r) => r.collection);
+  wall.classList.toggle("expanded", expanded.has("on-air"));
+  const toggle = $("#on-air-toggle");
+  toggle.hidden = collections.length < 8;
+  toggle.textContent = expanded.has("on-air") ? t("show_row") : format(t("show_all"), { n: collections.length });
   if (!collections.length) wall.appendChild(el("p", "muted", t("nothing_on_air")));
   collections.forEach((r) => {
     const item = el("figure", "on-air-item");
@@ -234,7 +244,8 @@ async function renderRows() {
   guide.appendChild(el("span", "guide-head"));
   CHANNELS.forEach(([, key]) => guide.appendChild(el("span", "guide-head", t(key))));
   const slots = Math.max(0, ...columns.map((c) => c.length));
-  for (let i = 0; i < slots; i++) {
+  setMore("guide", slots, SHORT.guide);
+  for (let i = 0; i < (expanded.has("guide") ? slots : Math.min(slots, SHORT.guide)); i++) {
     guide.appendChild(el("span", "guide-slot", String(i + 1).padStart(2, "0")));
     columns.forEach((column) => {
       const r = column[i];
@@ -669,6 +680,12 @@ async function init() {
   document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
   document.querySelectorAll("[data-goto]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.goto)));
   document.querySelectorAll("[data-run]").forEach((b) => b.addEventListener("click", () => runNow(b.dataset.run)));
+  document.querySelectorAll("[data-expand]").forEach((b) => b.addEventListener("click", () => {
+    const name = b.dataset.expand;
+    if (!expanded.delete(name)) expanded.add(name);
+    if (name === "history") renderHistory(lastHistory);
+    else drawRows();
+  }));
   $("#lang").addEventListener("change", (e) => setLanguage(e.target.value));
   let shownLibrary = "";
   $("#library-select").addEventListener("focus", (e) => { shownLibrary = e.target.value; });
