@@ -269,10 +269,11 @@ def rotate_library(client: PlexClient, sid: str, title: str, lib: LibrarySetting
     for ident in pinned_hubs(hubs, settings.pinned_rows):
         h = by_id[ident]
         home, shared = h.home or settings.pinned_home, h.shared or settings.pinned_shared
-        if (h.home, h.shared) != (home, shared):
+        # A pinned row always belongs in Recommended; this also repairs a row Plex switched off there.
+        if (h.recommended, h.home, h.shared) != (True, home, shared):
             res.changed += 1
             if not dry:
-                client.set_visibility(sid, ident, h.recommended, home, shared)
+                client.set_visibility(sid, ident, True, home, shared)
 
     # 2) Order.
     if lib.shuffle_order:

@@ -85,6 +85,16 @@ def test_pinned_rows_are_shown_everywhere():
     assert flags["hub.movie.topunwatched"] == (True, False, False)  # not pinned: left alone
 
 
+def test_pinned_rows_come_back_to_recommended():
+    plex = FakePlex(make_collections(10))
+    row = next(h for h in plex.hub_list if h.identifier == "hub.movie.recentlyadded")
+    row.recommended = row.home = False
+    lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5)
+    settings = Settings(pinned_rows=["recentlyadded"], pinned_home=False, pinned_shared=True)
+    rotate_library(plex, "1", "Movies", lib, settings, random.Random(0))
+    assert (row.recommended, row.home, row.shared) == (True, False, True)
+
+
 def test_pinned_rows_home_and_friends_are_separate():
     plex = FakePlex(make_collections(10))
     for h in plex.hub_list:
