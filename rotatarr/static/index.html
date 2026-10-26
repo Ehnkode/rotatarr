@@ -130,6 +130,11 @@
         <label><span data-t="repeat_block"></span><input type="number" min="0" name="repeat_block_runs"></label>
         <p class="muted" data-t="repeat_block_hint"></p>
         <label class="check"><input type="checkbox" name="dry_run"> <span data-t="dry_run"></span></label>
+        <h3 data-t="notify_title"></h3>
+        <label><span data-t="discord_webhook"></span><input type="url" name="discord_webhook" placeholder="https://discord.com/api/webhooks/…" autocomplete="off"></label>
+        <p class="muted" data-t="discord_hint"></p>
+        <label class="check"><input type="checkbox" name="notify_success"> <span data-t="notify_success"></span></label>
+        <button type="button" id="notify-test" data-t="notify_test"></button>
         <button class="primary" type="submit" data-t="save"></button>
       </form>
       <div class="card danger" id="reset-card">

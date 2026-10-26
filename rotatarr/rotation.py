@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import random
+import re
 from dataclasses import dataclass, field
 from datetime import date
 
 from . import state
-from .config import LibrarySettings, Settings
+from .config import LibrarySettings, Settings, pattern_of
 from .plex import Collection, Hub, PlexClient
 
 
@@ -38,7 +39,14 @@ class LibraryResult:
 
 def _contains(title: str, words: list[str]) -> bool:
     t = title.lower()
-    return any(w.strip() and w.strip().lower() in t for w in words)
+    for w in words:
+        pattern = pattern_of(w)
+        if pattern is not None:
+            if re.search(pattern, title, re.IGNORECASE):
+                return True
+        elif w.strip() and w.strip().lower() in t:
+            return True
+    return False
 
 
 def _season(title: str, lib: LibrarySettings):

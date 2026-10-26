@@ -8,7 +8,7 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from . import config
+from . import config, notify
 from .plex import PlexClient
 from . import state
 from .rotation import restore_library, rotate_library
@@ -94,6 +94,7 @@ def run_job(kind: str) -> dict:
     for line in entry["lines"]:
         log.info("[%s] %s", kind, line)
     _append_history(entry)
+    notify.report(settings, entry)
     return entry
 
 
@@ -123,6 +124,7 @@ def reset() -> dict:
             config.save(settings)
             state.clear_snapshot()
     _append_history(entry)
+    notify.report(settings, entry)
     return entry
 
 

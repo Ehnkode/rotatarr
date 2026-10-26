@@ -8,7 +8,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/Ehnkode/rotatarr/issues</Support>
   <Project>https://github.com/Ehnkode/rotatarr</Project>
-  <Overview>Keeps your home screen fresh, for Plex. Shows a random selection of your collections as rows in Recommended and on the home screens, shuffles the row order while keeping built-in rows like Continue Watching on top, and shuffles the titles inside the rows. Seasonal collections (e.g. Halloween only in October), limits per run and a one-click undo. Works with any collections: Kometa, automatic movie collections or your own.</Overview>
+  <Overview>Keeps your home screen fresh, for Plex. Shows a random selection of your collections as rows in Recommended and on the home screens, shuffles the row order while keeping built-in rows like Continue Watching on top, and shuffles the titles inside the rows. Seasonal collections (e.g. Halloween only in October), limits per run, Discord notifications and a one-click undo. Works with any collections: Kometa, automatic movie collections or your own.</Overview>
   <Category>MediaServer:Video Tools:</Category>
   <WebUI>http://[IP]:[PORT:7373]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/Ehnkode/rotatarr/main/unraid/rotatarr.xml</TemplateURL>
