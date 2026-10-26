@@ -234,11 +234,18 @@ def apply_order(client: PlexClient, sid: str, target: list[str]) -> None:
     down and left the pinned rows at the bottom. In that case every row is moved to the top,
     last one first.
     """
+    before = [h.identifier for h in client.hubs(sid)]
     prev = None
     for ident in target:
         client.move_hub(sid, ident, prev)
         prev = ident
     ids = [h.identifier for h in client.hubs(sid)]
+    if ids == before and not follows(ids, target):
+        # Plex answered every move with OK but changed nothing (seen with Plex 1.43.5, where
+        # dragging rows in Plex Web springs back too). Moving each row again would not help.
+        log.warning("Plex ignored every row move, so the row order stays as it is. "
+                    "This is a Plex bug; it also happens when rows are dragged in Plex itself.")
+        return
     if follows(ids, target):
         keep_on_top(client, sid, ids, target)
         return

@@ -161,6 +161,21 @@ def test_order_holds_when_plex_reads_after_differently():
             assert order[:2] == ["hub.movie.recentlyadded", "hub.movie.inprogress"], cls.__name__
 
 
+class MovesIgnored(FakePlex):
+    """A Plex that answers moves with OK but never changes the order."""
+
+    def move_hub(self, sid, ident, after):
+        self.calls.append(("move", ident))
+
+
+def test_no_second_round_of_moves_when_plex_ignores_them():
+    plex = MovesIgnored(make_collections(10))
+    lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5)
+    rotate_library(plex, "1", "Movies", lib, Settings(pinned_rows=["recentlyadded"]), random.Random(0))
+    moves = [c for c in plex.calls if c[0] == "move"]
+    assert len(moves) == len([h for h in plex.hub_list if h.visible])
+
+
 def test_spread_keeps_similar_rows_apart():
     ids = [f"a{i}" for i in range(10)] + [f"b{i}" for i in range(10)] + [f"c{i}" for i in range(5)]
     kinds = {i: i[0] for i in ids}
