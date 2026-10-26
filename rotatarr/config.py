@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import uuid
 from datetime import date
@@ -15,6 +16,18 @@ CONFIG_DIR = Path(os.environ.get("ROTATARR_CONFIG_DIR", "/config"))
 SETTINGS_FILE = CONFIG_DIR / "settings.json"
 
 DEFAULT_PINNED_ROWS = ["inprogress", "ondeck", "recentlyreleased", "recentlyadded"]
+
+
+def pattern_of(word: str) -> str | None:
+    """A line written as /.../ is a regular expression; anything else is plain text."""
+    w = word.strip()
+    if len(w) > 2 and w.startswith("/") and w.endswith("/"):
+        return w[1:-1]
+    return None
+
+
+DISCORD_PREFIXES = ("https://discord.com/api/webhooks/", "https://discordapp.com/api/webhooks/",
+                    "https://ptb.discord.com/api/webhooks/", "https://canary.discord.com/api/webhooks/")
 
 
 class Quota(BaseModel):
@@ -56,6 +69,17 @@ class LibrarySettings(BaseModel):
     shuffle_order: bool = True
     shuffle_items: bool = True
 
+    @field_validator("exclude")
+    @classmethod
+    def _check_patterns(cls, words: list[str]) -> list[str]:
+        for w in words:
+            if pattern_of(w) is not None:
+                try:
+                    re.compile(pattern_of(w))
+                except re.error as exc:
+                    raise ValueError(f"invalid pattern {w}: {exc}") from exc
+        return words
+
     @field_validator("quotas")
     @classmethod
     def _drop_broken_quotas(cls, quotas: list[Quota]) -> list[Quota]:
@@ -75,8 +99,19 @@ class Settings(BaseModel):
     dry_run: bool = False
     # Collections shown in one of the last N runs are only picked again when nothing else is left.
     repeat_block_runs: int = Field(default=2, ge=0)
+    # Discord webhook for run reports; empty = off. Failures are always reported.
+    discord_webhook: str = ""
+    notify_success: bool = False
     # Keyed by Plex section key (as a string).
     libraries: dict[str, LibrarySettings] = Field(default_factory=dict)
+
+    @field_validator("discord_webhook")
+    @classmethod
+    def _check_webhook(cls, url: str) -> str:
+        url = url.strip()
+        if url and not url.startswith(DISCORD_PREFIXES):
+            raise ValueError("invalid_webhook")
+        return url
 
     @property
     def connected(self) -> bool:

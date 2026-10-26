@@ -23,6 +23,8 @@ async function api(path, options = {}) {
   if (!res.ok) {
     let detail = res.statusText;
     try { detail = (await res.json()).detail || detail; } catch (_) { /* not json */ }
+    // Validation errors come as a list; show their messages, not raw JSON.
+    if (Array.isArray(detail)) detail = detail.map((d) => d.msg || JSON.stringify(d)).join("; ");
     throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
   }
   return res.json();
@@ -61,6 +63,14 @@ function markSaved(form) {
 }
 
 function lines(text) { return text.split("\n").map((s) => s.trim()).filter(Boolean); }
+
+// Same rule as the server: a line written as /.../ is a regular expression.
+function matchesWord(title, word) {
+  if (word.length > 2 && word.startsWith("/") && word.endsWith("/")) {
+    try { return new RegExp(word.slice(1, -1), "i").test(title); } catch (_) { return false; }
+  }
+  return title.toLowerCase().includes(word.toLowerCase());
+}
 
 // --- tabs ----------------------------------------------------------------------
 
@@ -259,8 +269,7 @@ function collectionStatus(c, form) {
   const mode = collectionModes.get(c.title.toLowerCase()) || "random";
   if (mode !== "random") return mode;
   if (c.items < (+form.elements.min_items.value || 0)) return "too_small";
-  const title = c.title.toLowerCase();
-  if (lines(form.elements.exclude.value).some((w) => title.includes(w.toLowerCase()))) return "excluded";
+  if (lines(form.elements.exclude.value).some((w) => matchesWord(c.title, w))) return "excluded";
   return "random";
 }
 
@@ -392,6 +401,8 @@ function fillSettingsForm() {
   if (!pinnedRows.length) pinnedRows = settings.pinned_rows.map((key) => ({ key, checked: true }));
   renderPinned();
   form.elements.dry_run.checked = settings.dry_run;
+  form.elements.discord_webhook.value = settings.discord_webhook;
+  form.elements.notify_success.checked = settings.notify_success;
   $("#connected-card").hidden = !settings.connected;
   $("#connected-url").textContent = settings.plex_url;
 }
@@ -461,9 +472,11 @@ async function saveSettings(ev) {
       repeat_block_runs: +form.elements.repeat_block_runs.value,
       pinned_rows: pinnedRows.filter((r) => r.checked).map((r) => r.key),
       dry_run: form.elements.dry_run.checked,
+      discord_webhook: form.elements.discord_webhook.value.trim(),
+      notify_success: form.elements.notify_success.checked,
     } });
     markSaved(form);
-  } catch (e) { notify(e.message, true); }
+  } catch (e) { notify(e.message === "invalid_webhook" ? t("discord_invalid") : e.message, true); }
 }
 
 async function setLanguage(value) {
@@ -473,6 +486,14 @@ async function setLanguage(value) {
   renderPinned();
   if (collections.length) renderCollections();
   refreshStatus();
+}
+
+async function testNotification() {
+  if (dirty.has("settings-form")) { notify(t("notify_save_first"), true); return; }
+  try {
+    await api("/api/notify/test", { method: "POST" });
+    notify(t("notify_sent"));
+  } catch (e) { notify(e.message === "no_webhook" ? t("notify_save_first") : e.message, true); }
 }
 
 async function resetPlex() {
@@ -596,6 +617,7 @@ async function init() {
     $("#library-form").elements[name].addEventListener("input", renderCollections);
   }
   $("#settings-form").addEventListener("submit", saveSettings);
+  $("#notify-test").addEventListener("click", testNotification);
   $("#manual-form").addEventListener("submit", connectManual);
   $("#plex-login").addEventListener("click", plexLogin);
   $("#disconnect").addEventListener("click", disconnect);

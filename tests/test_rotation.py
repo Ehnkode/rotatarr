@@ -141,3 +141,16 @@ def test_automatic_collections_are_limited():
 def test_bare_number_quota_from_old_versions_is_dropped():
     lib = LibrarySettings.model_validate({"quotas": [{"match": "10", "max": 0}, {"match": "Best of", "max": 3}]})
     assert [q.match for q in lib.quotas] == ["Best of"]
+
+
+def test_exclude_supports_patterns():
+    cols = [Collection("1", "Best of 1930s", 10, False), Collection("2", "Best of 1990s", 10, False),
+            Collection("3", "Lowest Rated", 10, False)]
+    lib = LibrarySettings(exclude=["/^Best of 19[3-6]0s$/", "lowest"])
+    assert [c.title for c in build_pool(cols, lib)] == ["Best of 1990s"]
+
+
+def test_invalid_pattern_is_rejected():
+    import pytest
+    with pytest.raises(ValueError):
+        LibrarySettings(exclude=["/[unclosed/"])

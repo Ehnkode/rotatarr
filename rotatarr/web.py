@@ -12,9 +12,9 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
-from . import __version__, config, plexauth, runner, state
+from . import __version__, config, notify, plexauth, runner, state
 from .config import LibrarySettings
 from .plex import PlexClient
 
@@ -83,6 +83,8 @@ class SettingsIn(BaseModel):
     pinned_rows: list[str] | None = None
     dry_run: bool | None = None
     repeat_block_runs: int | None = None
+    discord_webhook: str | None = None
+    notify_success: bool | None = None
 
 
 def _public_settings(s: config.Settings) -> dict:
@@ -100,10 +102,25 @@ def get_settings():
 def put_settings(body: SettingsIn):
     s = config.load()
     updated = s.model_copy(update=body.model_dump(exclude_none=True))
-    s = config.Settings.model_validate(updated.model_dump())
+    try:
+        s = config.Settings.model_validate(updated.model_dump())
+    except ValidationError as exc:
+        raise HTTPException(400, "; ".join(e["msg"].removeprefix("Value error, ") for e in exc.errors())) from exc
     config.save(s)
     scheduler.reschedule()
     return _public_settings(s)
+
+
+@app.post("/api/notify/test")
+def notify_test():
+    s = config.load()
+    if not s.discord_webhook:
+        raise HTTPException(400, "no_webhook")
+    try:
+        notify.test(s)
+    except Exception as exc:
+        raise HTTPException(400, f"notify_failed: {exc}") from exc
+    return {"ok": True}
 
 
 # --- Plex connection -------------------------------------------------------------
