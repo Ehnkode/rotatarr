@@ -12,7 +12,8 @@ Plex shows the same collection rows in the same order every day. Rotatarr turns 
 
 - **Rotates rows:** shows a random selection of your collections in *Recommended*, on *your home screen* and on *your friends' home screens*, and hides the rest.
 - **Shuffles:** the row order and the titles inside the rows. Built-in rows such as *Continue Watching* stay on top.
-- **Follows your rules:** always, never or seasonal per collection (e.g. *Halloween* only in October), plus limits and a minimum size. Plex's automatic movie collections are recognised in any language, so you can limit them separately.
+- **Follows your rules:** always, never or seasonal per collection (e.g. *Halloween* only in October), plus limits and a minimum size. Plex's automatic movie collections are recognised in any language, so you can limit them separately, also just for the home screens.
+- **Shows what's on air:** a countdown to the next rotation, the posters of the visible collections and a guide for each home screen.
 - **Tells you when something goes wrong:** optional Discord message for failed runs.
 - **Works with any collections:** Kometa, Plex's automatic movie collections or your own.
 
