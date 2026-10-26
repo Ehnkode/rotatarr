@@ -495,10 +495,12 @@ function fillSettingsForm() {
 }
 
 let pinnedRows = []; // [{key, title, checked}] in display order
+let builtinKnown = false; // true once Plex has told us which built-in rows it has
 
 async function loadBuiltinRows() {
   const builtin = settings.connected ? await api("/api/builtin-rows").catch(() => []) : [];
   const titles = new Map(builtin.map((r) => [r.key, r.title]));
+  builtinKnown = builtin.length > 0;
   // Saved rows first, in their order; then the other built-in rows Plex knows.
   pinnedRows = settings.pinned_rows.map((key) => ({ key, title: titles.get(key), checked: true }));
   builtin.forEach((r) => {
@@ -510,7 +512,10 @@ async function loadBuiltinRows() {
 function renderPinned() {
   const list = $("#pinned-list");
   list.innerHTML = "";
-  pinnedRows.forEach((row, i) => {
+  // Saved rows this server does not have (e.g. the defaults "inprogress" and "ondeck") stay saved
+  // and take effect if Plex shows them later, but are not listed.
+  const shown = pinnedRows.filter((row) => row.title || !builtinKnown);
+  shown.forEach((row, i) => {
     const li = document.createElement("li");
     const label = document.createElement("label");
     label.className = "check";
@@ -535,9 +540,11 @@ function renderPinned() {
       b.textContent = symbol;
       b.title = t(key);
       b.setAttribute("aria-label", t(key));
-      b.disabled = i + dir < 0 || i + dir >= pinnedRows.length;
+      b.disabled = i + dir < 0 || i + dir >= shown.length;
       b.onclick = () => {
-        [pinnedRows[i], pinnedRows[i + dir]] = [pinnedRows[i + dir], pinnedRows[i]];
+        const a = pinnedRows.indexOf(row);
+        const other = pinnedRows.indexOf(shown[i + dir]);
+        [pinnedRows[a], pinnedRows[other]] = [pinnedRows[other], pinnedRows[a]];
         dirty.add("settings-form");
         renderPinned();
       };
