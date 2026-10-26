@@ -144,19 +144,26 @@ def placements(selection: list[Collection], lib: LibrarySettings) -> dict[str, P
     }
 
 
+def builtin_key(identifier: str) -> str:
+    """Short name of a built-in row, as shown in the settings: "movie.recentlyadded" -> "recentlyadded"."""
+    return identifier.rsplit(".", 1)[-1].lower()
+
+
 def order_hubs(hubs: list[Hub], placed: dict[str, Placement], pinned: list[str], rng: random.Random) -> list[str]:
     """Target order for the visible rows: pinned built-in rows first, the rest shuffled.
 
     Hidden rows are left alone; they end up below the visible ones.
     """
-    ids = [h.identifier for h in hubs]
+    builtin = [h.identifier for h in hubs if h.collection_key is None]
     top: list[str] = []
     for p in pinned:
         p = p.strip().lower()
         if not p:
             continue
-        for i in ids:
-            if i.startswith("hub.") and p in i.lower() and i not in top:
+        for i in builtin:
+            # Same key as the list in the settings ("recentlyreleased" for "movie.recentlyreleased"),
+            # plus the older match on part of the name for "hub.*" rows.
+            if (builtin_key(i) == p or (i.startswith("hub.") and p in i.lower())) and i not in top:
                 top.append(i)
 
     def will_be_visible(h: Hub) -> bool:

@@ -61,6 +61,18 @@ def test_pinned_builtin_rows_stay_on_top():
         assert flags == sorted(flags, reverse=True)
 
 
+def test_pinned_rows_match_identifiers_without_hub_prefix():
+    # Plex names many built-in rows "movie.recentlyreleased", without "hub.".
+    plex = FakePlex(make_collections(10), builtin=("movie.recentlyreleased", "movie.recentlyadded",
+                                                   "hub.movie.topunwatched"))
+    lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5)
+    settings = Settings(pinned_rows=["recentlyreleased", "recentlyadded"])
+    for seed in range(5):
+        rotate_library(plex, "1", "Movies", lib, settings, random.Random(seed))
+        order = [h.identifier for h in plex.hub_list]
+        assert order[:2] == ["movie.recentlyreleased", "movie.recentlyadded"]
+
+
 def test_dry_run_changes_nothing():
     plex = FakePlex(make_collections(10))
     lib = LibrarySettings(enabled=True, recommended=5, home=0, shared=0)
