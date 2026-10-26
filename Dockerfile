@@ -18,6 +18,6 @@ VOLUME /config
 EXPOSE 7373
 
 HEALTHCHECK --interval=60s --timeout=5s --start-period=20s \
-  CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ[\"PORT\"]}/api/state', timeout=4)" || exit 1
+  CMD python -m rotatarr.healthcheck
 
 ENTRYPOINT ["/entrypoint.sh"]
