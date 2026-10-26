@@ -217,15 +217,16 @@ def rotate_library(client: PlexClient, sid: str, title: str, lib: LibrarySetting
             if not dry:
                 client.create_collection_hub(sid, key, want.recommended, want.home, want.shared)
 
-    # Pinned built-in rows: Plex often shows them only in Recommended. Switch them on everywhere.
-    if settings.pinned_everywhere:
-        by_id = {h.identifier: h for h in hubs}
-        for ident in pinned_hubs(hubs, settings.pinned_rows):
-            h = by_id[ident]
-            if not (h.recommended and h.home and h.shared):
-                res.changed += 1
-                if not dry:
-                    client.set_visibility(sid, ident, True, True, True)
+    # Pinned built-in rows: Plex often shows them only in Recommended. Switch on the home screens
+    # chosen in the settings; a switch that is off leaves Plex's setting alone.
+    by_id = {h.identifier: h for h in hubs}
+    for ident in pinned_hubs(hubs, settings.pinned_rows):
+        h = by_id[ident]
+        home, shared = h.home or settings.pinned_home, h.shared or settings.pinned_shared
+        if (h.home, h.shared) != (home, shared):
+            res.changed += 1
+            if not dry:
+                client.set_visibility(sid, ident, h.recommended, home, shared)
 
     # 2) Order.
     if lib.shuffle_order:

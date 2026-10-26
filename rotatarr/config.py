@@ -98,8 +98,9 @@ class Settings(BaseModel):
     shuffle_interval_minutes: int = Field(default=180, ge=0)
     items_to_front: int = Field(default=20, ge=1)
     pinned_rows: list[str] = Field(default_factory=lambda: list(DEFAULT_PINNED_ROWS))
-    # Also show the pinned rows on your and your friends' home screens, not only in Recommended.
-    pinned_everywhere: bool = True
+    # Also show the pinned rows on your own / your friends' home screens, not only in Recommended.
+    pinned_home: bool = True
+    pinned_shared: bool = True
     dry_run: bool = False
     # Collections shown in one of the last N runs are only picked again when nothing else is left.
     repeat_block_runs: int = Field(default=2, ge=0)
