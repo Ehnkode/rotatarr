@@ -11,6 +11,7 @@ function applyTexts() {
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = t(el.dataset.t); });
   document.querySelectorAll("[data-t-placeholder]").forEach((el) => { el.placeholder = t(el.dataset.tPlaceholder); });
+  document.querySelectorAll("[data-t-label]").forEach((el) => { el.setAttribute("aria-label", t(el.dataset.tLabel)); });
   $("#lang").value = lang;
 }
 
@@ -87,17 +88,51 @@ function showTab(name) {
 
 // --- status --------------------------------------------------------------------
 
+const CHANNELS = [["recommended", "badge_rec"], ["home", "badge_home"], ["shared", "badge_shared"]];
+let nextRun = { rotate: null, shuffle: null };
+let rowsLibrary = "";
+
 function formatNext(ts) {
   if (!ts) return t("manual_only");
   return new Date(ts * 1000).toLocaleString(lang);
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function posterImage(row, className) {
+  const poster = el(row.thumb ? "img" : "span", className);
+  if (row.thumb) {
+    poster.src = `/api/thumb?path=${encodeURIComponent(row.thumb)}`;
+    poster.loading = "lazy";
+    poster.alt = "";
+  } else {
+    poster.textContent = row.title;
+  }
+  return poster;
+}
+
+function tickCountdown() {
+  const box = $("#countdown");
+  if (!nextRun.rotate) { box.textContent = t("manual_only"); box.classList.add("idle"); return; }
+  box.classList.remove("idle");
+  const left = Math.max(0, Math.round(nextRun.rotate - Date.now() / 1000));
+  box.textContent = [Math.floor(left / 3600), Math.floor(left / 60) % 60, left % 60]
+    .map((n) => String(n).padStart(2, "0")).join(":");
 }
 
 async function refreshStatus() {
   $("#dry-run-banner").hidden = !settings.dry_run;
   try {
     const state = await api("/api/state");
-    $("#next-rotate").textContent = formatNext(state.next_run.rotate);
-    $("#next-shuffle").textContent = formatNext(state.next_run.shuffle);
+    nextRun = state.next_run;
+    $("#next-rotate").textContent = formatNext(nextRun.rotate);
+    $("#next-shuffle").textContent = formatNext(nextRun.shuffle);
+    tickCountdown();
     document.querySelectorAll("[data-run]").forEach((b) => {
       const busy = state.running.includes(b.dataset.run);
       b.disabled = busy || !settings.connected;
@@ -106,95 +141,134 @@ async function refreshStatus() {
   } catch (e) { /* server restarting */ }
   const history = await api("/api/history").catch(() => []);
   renderHistory(history);
+  renderDaybar(history);
   renderOverview(history);
   if (settings.connected) await renderRows();
+}
+
+// Today's runs as marks on a 24-hour bar: past ones from the log, upcoming ones from the schedule.
+function renderDaybar(history) {
+  const bar = $("#daybar");
+  bar.innerHTML = "";
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const day = 24 * 3600 * 1000;
+  const place = (time, className) => {
+    const offset = time - start.getTime();
+    if (offset < 0 || offset >= day) return;
+    const mark = el("span", className);
+    mark.style.left = `${(offset / day) * 100}%`;
+    bar.appendChild(mark);
+  };
+  history.forEach((h) => {
+    if (h.kind === "rotate" || h.kind === "shuffle") place(new Date(h.started).getTime(), `mark ${h.kind} past${h.ok ? "" : " failed"}`);
+  });
+  for (const [kind, minutes] of [["rotate", settings.rotation_interval_minutes], ["shuffle", settings.shuffle_interval_minutes]]) {
+    const every = minutes * 60 * 1000;
+    if (!nextRun[kind] || !every) continue;
+    for (let time = nextRun[kind] * 1000; time < start.getTime() + day; time += every) place(time, `mark ${kind} next`);
+  }
+  place(Date.now(), "now");
+  const minutes = settings.rotation_interval_minutes;
+  $("#daybar-hint").textContent = minutes ? format(t("every_minutes"), { n: minutes }) : t("manual_only");
 }
 
 function renderHistory(history) {
   const box = $("#history");
   box.innerHTML = "";
   if (!history.length) { box.textContent = t("no_runs"); return; }
+  const today = new Date().toDateString();
   history.slice(0, 15).forEach((h) => {
-    const div = document.createElement("div");
-    div.className = `run ${h.ok ? "" : "failed"}`;
-    const head = document.createElement("div");
-    head.className = "run-head";
-    head.textContent = `${new Date(h.started).toLocaleString(lang)} · ${t(`kind_${h.kind}`)}`
-      + (h.dry_run ? ` · ${t("test")}` : "") + (h.seconds !== undefined ? ` · ${h.seconds}s` : "");
-    div.appendChild(head);
+    const started = new Date(h.started);
+    const div = el("div", `run ${h.ok ? "" : "failed"}`);
+    const time = started.toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit" });
+    const when = el("span", "run-time", started.toDateString() === today ? time
+      : `${started.toLocaleDateString(lang, { day: "2-digit", month: "2-digit" })} ${time}`);
+    const body = el("div", "run-body");
+    body.appendChild(el("div", "run-head", t(`kind_${h.kind}`)
+      + (h.dry_run ? ` · ${t("test")}` : "") + (h.seconds !== undefined ? ` · ${h.seconds}s` : "")));
     const texts = h.results && h.results.length && h.lines.length === h.results.length
       ? h.results.map((r) => (r.error ? `${r.library}: ${r.error}` : format(t(`log_${h.kind}`), r)))
       : h.lines;
-    texts.forEach((l) => { const p = document.createElement("div"); p.textContent = l; div.appendChild(p); });
+    texts.forEach((l) => body.appendChild(el("div", "run-line", l)));
+    div.append(when, body);
     box.appendChild(div);
   });
 }
 
-async function renderRows() {
-  const select = $("#rows-library");
-  if (!select.value) return;
-  const rows = await api(`/api/libraries/${select.value}/rows`).catch(() => []);
-  const list = $("#rows");
-  list.innerHTML = "";
-  rows.filter((r) => r.recommended || r.home || r.shared).forEach((r) => {
-    const li = document.createElement("li");
-    if (!r.collection) li.classList.add("builtin");
-    const poster = document.createElement(r.thumb ? "img" : "span");
-    poster.className = "poster";
-    if (r.thumb) {
-      poster.src = `/api/thumb?path=${encodeURIComponent(r.thumb)}`;
-      poster.loading = "lazy";
-      poster.alt = "";
-    }
-    const text = document.createElement("span");
-    text.className = "row-text";
-    const title = document.createElement("span");
-    title.textContent = r.title;
-    const badges = document.createElement("span");
-    [["recommended", "badge_rec"], ["home", "badge_home"], ["shared", "badge_shared"]].forEach(([flag, key]) => {
-      if (!r[flag]) return;
-      const b = document.createElement("span");
-      b.className = "badge";
-      b.textContent = t(key);
-      badges.appendChild(b);
-    });
-    text.append(title, badges);
-    li.append(poster, text);
-    list.appendChild(li);
+function renderLibraryButtons() {
+  const box = $("#rows-library");
+  box.innerHTML = "";
+  if (!libraries.some((l) => l.key === rowsLibrary)) rowsLibrary = libraries.length ? libraries[0].key : "";
+  libraries.forEach((l) => {
+    const b = el("button", "", l.title);
+    b.type = "button";
+    b.setAttribute("aria-pressed", String(l.key === rowsLibrary));
+    b.onclick = () => { rowsLibrary = l.key; renderLibraryButtons(); renderRows(); };
+    box.appendChild(b);
   });
+}
+
+async function renderRows() {
+  if (!rowsLibrary) return;
+  const rows = await api(`/api/libraries/${rowsLibrary}/rows`).catch(() => []);
+  const visible = rows.filter((r) => r.recommended || r.home || r.shared);
+
+  const wall = $("#on-air");
+  wall.innerHTML = "";
+  const collections = visible.filter((r) => r.collection);
+  if (!collections.length) wall.appendChild(el("p", "muted", t("nothing_on_air")));
+  collections.forEach((r) => {
+    const item = el("figure", "on-air-item");
+    const caption = el("figcaption");
+    caption.append(el("span", "on-air-title", r.title),
+      el("span", "on-air-where", CHANNELS.filter(([flag]) => r[flag]).map(([, key]) => t(key)).join(", ")));
+    item.append(posterImage(r, "poster big"), caption);
+    wall.appendChild(item);
+  });
+
+  // Plex keeps one order per library; each channel shows the rows switched on for it.
+  const guide = $("#guide");
+  guide.innerHTML = "";
+  const columns = CHANNELS.map(([flag]) => visible.filter((r) => r[flag]));
+  guide.appendChild(el("span", "guide-head"));
+  CHANNELS.forEach(([, key]) => guide.appendChild(el("span", "guide-head", t(key))));
+  const slots = Math.max(0, ...columns.map((c) => c.length));
+  for (let i = 0; i < slots; i++) {
+    guide.appendChild(el("span", "guide-slot", String(i + 1).padStart(2, "0")));
+    columns.forEach((column) => {
+      const r = column[i];
+      const cell = el("div", `guide-cell${r && !r.collection ? " builtin" : ""}`);
+      if (r) cell.append(posterImage(r, "poster"), el("span", "guide-title", r.title));
+      guide.appendChild(cell);
+    });
+  }
 }
 
 async function renderOverview(history) {
   const box = $("#overview");
-  if (!settings.connected) { box.innerHTML = ""; return; }
+  const pill = $("#air-pill");
+  if (!settings.connected) { box.innerHTML = ""; pill.hidden = true; return; }
   const libs = await api("/api/overview").catch(() => null);
   if (!libs) return;
+  const onAir = libs.some((l) => l.enabled);
+  pill.hidden = false;
+  pill.className = `air-pill ${settings.dry_run ? "test" : onAir ? "on" : ""}`;
+  pill.textContent = t(settings.dry_run ? "air_test" : onAir ? "air_on" : "air_off");
   box.innerHTML = "";
   libs.forEach((l) => {
-    const tile = document.createElement("div");
-    tile.className = `tile ${l.enabled ? "" : "off"}`;
-    const head = document.createElement("div");
-    head.className = "tile-head";
-    const name = document.createElement("strong");
-    name.textContent = l.title;
-    const state = document.createElement("span");
-    state.className = `pill ${l.enabled ? "on" : ""}`;
-    state.textContent = t(l.enabled ? "rotation_on" : "rotation_off");
-    head.append(name, state);
-    const counts = document.createElement("div");
-    counts.className = "tile-counts";
-    [["recommended", "badge_rec"], ["home", "badge_home"], ["shared", "badge_shared"]].forEach(([k, label]) => {
-      const c = document.createElement("div");
-      const n = document.createElement("b");
-      n.textContent = l[k];
-      const lab = document.createElement("small");
-      lab.textContent = t(label);
-      c.append(n, lab);
+    const tile = el("button", `tile ${l.enabled ? "" : "off"}`);
+    tile.type = "button";
+    const head = el("div", "tile-head");
+    head.append(el("strong", "", l.title), el("span", `pill ${l.enabled ? "on" : ""}`, t(l.enabled ? "rotation_on" : "rotation_off")));
+    const counts = el("div", "tile-counts");
+    CHANNELS.forEach(([k, label]) => {
+      const c = el("div");
+      c.append(el("b", "", l[k]), el("small", "", t(label)));
       counts.appendChild(c);
     });
     const last = history.find((h) => h.kind === "rotate" && (h.results || []).some((r) => r.library === l.title));
-    const foot = document.createElement("div");
-    foot.className = "muted tile-foot";
+    const foot = el("div", "tile-foot");
     if (last) {
       const r = last.results.find((x) => x.library === l.title);
       foot.textContent = `${t("last_run")}: ${new Date(last.started).toLocaleString(lang)}` + (r.error ? ` · ${t("failed")}` : "");
@@ -226,12 +300,12 @@ async function runNow(kind) {
 async function loadLibraries() {
   if (!settings.connected) { libraries = []; fillLibraryForm(); return; }
   try { libraries = await api("/api/libraries"); } catch (e) { notify(e.message, true); return; }
-  for (const select of [$("#library-select"), $("#rows-library")]) {
-    const current = select.value;
-    select.innerHTML = "";
-    libraries.forEach((l) => select.add(new Option(l.title, l.key)));
-    if (current) select.value = current;
-  }
+  const select = $("#library-select");
+  const current = select.value;
+  select.innerHTML = "";
+  libraries.forEach((l) => select.add(new Option(l.title, l.key)));
+  if (current) select.value = current;
+  renderLibraryButtons();
   fillLibraryForm();
 }
 
@@ -611,7 +685,6 @@ async function init() {
   }
   $("#add-quota").addEventListener("click", () => dirty.add("library-form"));
   window.addEventListener("beforeunload", (e) => { if (dirty.size) e.preventDefault(); });
-  $("#rows-library").addEventListener("change", renderRows);
   $("#library-form").addEventListener("submit", saveLibrary);
   $("#add-quota").addEventListener("click", () => addQuotaRow());
   $("#collection-filter").addEventListener("input", renderCollections);
@@ -632,6 +705,7 @@ async function init() {
   showTab(!settings.connected ? "connection"
     : ["status", "libraries", "settings", "connection"].includes(start) ? start : "status");
   setInterval(() => { if (!$("#tab-status").hidden) refreshStatus(); }, 15000);
+  setInterval(tickCountdown, 1000);
 }
 
 init();

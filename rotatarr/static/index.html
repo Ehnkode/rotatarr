@@ -13,21 +13,23 @@
       <img src="/static/icon.png" alt="" width="44" height="44">
       <div>
         <h1>Rotatarr</h1>
-        <p class="muted" data-t="tagline"></p>
+        <p class="tagline" data-t="tagline"></p>
       </div>
     </div>
-    <select id="lang" aria-label="Language">
-      <option value="en">English</option>
-      <option value="de">Deutsch</option>
-    </select>
+    <nav>
+      <button data-tab="status" data-t="tab_status"></button>
+      <button data-tab="libraries" data-t="tab_libraries"></button>
+      <button data-tab="settings" data-t="tab_settings"></button>
+      <button data-tab="connection" data-t="tab_connection"></button>
+    </nav>
+    <div class="header-end">
+      <span id="air-pill" class="air-pill" hidden></span>
+      <select id="lang" aria-label="Language">
+        <option value="en">English</option>
+        <option value="de">Deutsch</option>
+      </select>
+    </div>
   </header>
-
-  <nav>
-    <button data-tab="status" data-t="tab_status"></button>
-    <button data-tab="libraries" data-t="tab_libraries"></button>
-    <button data-tab="settings" data-t="tab_settings"></button>
-    <button data-tab="connection" data-t="tab_connection"></button>
-  </nav>
 
   <main>
     <div id="notice"></div>
@@ -37,27 +39,46 @@
         <p data-t="not_connected"></p>
         <button class="primary" data-goto="connection" data-t="go_connection"></button>
       </div>
-      <div id="overview" class="tiles"></div>
-      <div class="card">
-        <p id="dry-run-banner" class="warn" data-t="dry_run_active" hidden></p>
-        <div class="actions">
-          <button class="primary" data-run="rotate" data-t="run_rotate"></button>
-          <button data-run="shuffle" data-t="run_shuffle"></button>
+      <p id="dry-run-banner" class="warn" data-t="dry_run_active" hidden></p>
+      <div class="hero">
+        <div class="card countdown-card">
+          <div class="eyebrow" data-t="next_change_in"></div>
+          <div id="countdown" class="countdown">--:--:--</div>
+          <dl class="schedule">
+            <dt data-t="next_rotate"></dt><dd id="next-rotate"></dd>
+            <dt data-t="next_shuffle"></dt><dd id="next-shuffle"></dd>
+          </dl>
+          <div class="actions">
+            <button class="primary" data-run="rotate" data-t="run_rotate"></button>
+            <button data-run="shuffle" data-t="run_shuffle"></button>
+          </div>
         </div>
-        <dl class="schedule">
-          <dt data-t="next_rotate"></dt><dd id="next-rotate"></dd>
-          <dt data-t="next_shuffle"></dt><dd id="next-shuffle"></dd>
-        </dl>
+        <div id="overview" class="tiles"></div>
       </div>
       <div class="card">
-        <h2 data-t="current_rows"></h2>
-        <p class="muted" data-t="rows_hint"></p>
-        <select id="rows-library"></select>
-        <ol id="rows"></ol>
+        <div class="card-head">
+          <h2 data-t="today"></h2>
+          <span class="muted" id="daybar-hint"></span>
+        </div>
+        <div id="daybar" class="daybar" aria-hidden="true"></div>
+        <div class="daybar-scale" aria-hidden="true"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+        <div class="daybar-legend muted"><span class="key rotate"></span><span data-t="kind_rotate"></span><span class="key shuffle"></span><span data-t="kind_shuffle"></span></div>
       </div>
-      <div class="card">
-        <h2 data-t="log"></h2>
-        <div id="history"></div>
+      <div class="section-head">
+        <h2 data-t="on_air"></h2>
+        <div id="rows-library" class="segmented" role="group" data-t-label="library"></div>
+      </div>
+      <div id="on-air" class="posters"></div>
+      <div class="split">
+        <div class="guide-col">
+          <h2 data-t="current_rows"></h2>
+          <p class="muted" data-t="rows_hint"></p>
+          <div class="guide-scroll"><div id="guide" class="guide"></div></div>
+        </div>
+        <aside class="card log">
+          <h2 data-t="log"></h2>
+          <div id="history"></div>
+        </aside>
       </div>
     </section>
 
