@@ -230,29 +230,29 @@ def order_hubs(hubs: list[Hub], placed: dict[str, Placement], pinned: list[str],
 def apply_order(client: PlexClient, sid: str, target: list[str]) -> None:
     """Move the rows into the target order and check that Plex really took it.
 
-    Some Plex versions ignore "after" (or read it differently), which turned the order upside
-    down and left the pinned rows at the bottom. In that case every row is moved to the top,
-    last one first.
+    Plex often refuses to move a row to the very first place (a known Plex Web bug), so no row
+    is moved to the top: the rows are lined up behind the current first row, and that row is
+    moved down to where it belongs afterwards.
     """
     before = [h.identifier for h in client.hubs(sid)]
-    prev = None
+    if not before:
+        return
+    first = before[0]
+    prev = first
     for ident in target:
-        client.move_hub(sid, ident, prev)
-        prev = ident
+        if ident != first:
+            client.move_hub(sid, ident, prev)
+            prev = ident
+    if first != target[0]:
+        # A hidden first row goes below the ordered ones.
+        client.move_hub(sid, first, target[target.index(first) - 1] if first in target else target[-1])
     ids = [h.identifier for h in client.hubs(sid)]
     if ids == before and not follows(ids, target):
-        # Plex answered every move with OK but changed nothing (seen with Plex 1.43.5, where
-        # dragging rows in Plex Web springs back too). Moving each row again would not help.
+        # Plex answered every move with OK but changed nothing. This happened while Kometa
+        # was running; dragging rows in Plex Web sprang back then too.
         log.warning("Plex ignored every row move, so the row order stays as it is. "
-                    "This is a Plex bug; it also happens when rows are dragged in Plex itself.")
+                    "Is Kometa running right now?")
         return
-    if follows(ids, target):
-        keep_on_top(client, sid, ids, target)
-        return
-    log.info("Plex did not keep the row order; moving the rows to the top one by one")
-    for ident in reversed(target):
-        client.move_hub(sid, ident, None)
-    ids = [h.identifier for h in client.hubs(sid)]
     if not follows(ids, target) or ids[0] != target[0]:
         log.warning("Plex did not take the row order. The first rows are now: %s", ", ".join(ids[:5]))
 
@@ -261,20 +261,6 @@ def follows(ids: list[str], target: list[str]) -> bool:
     """True if the target rows appear in this order (other rows may sit between them)."""
     wanted = set(target)
     return [i for i in ids if i in wanted] == [i for i in target if i in set(ids)]
-
-
-def keep_on_top(client: PlexClient, sid: str, ids: list[str], target: list[str]) -> None:
-    """Rows that are still above the ordered ones (e.g. hidden rows) are moved below them."""
-    if target[0] not in ids:
-        return
-    above = [i for i in ids[:ids.index(target[0])] if i not in target]
-    if not above:
-        return
-    log.info("Moving %d rows below the pinned rows because Plex kept them on top", len(above))
-    prev = target[-1]
-    for ident in above:
-        client.move_hub(sid, ident, prev)
-        prev = ident
 
 
 def rotate_library(client: PlexClient, sid: str, title: str, lib: LibrarySettings, settings: Settings,
