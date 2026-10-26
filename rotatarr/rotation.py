@@ -149,11 +149,8 @@ def builtin_key(identifier: str) -> str:
     return identifier.rsplit(".", 1)[-1].lower()
 
 
-def order_hubs(hubs: list[Hub], placed: dict[str, Placement], pinned: list[str], rng: random.Random) -> list[str]:
-    """Target order for the visible rows: pinned built-in rows first, the rest shuffled.
-
-    Hidden rows are left alone; they end up below the visible ones.
-    """
+def pinned_hubs(hubs: list[Hub], pinned: list[str]) -> list[str]:
+    """Identifiers of the pinned built-in rows this library has, in the pinned order."""
     builtin = [h.identifier for h in hubs if h.collection_key is None]
     top: list[str] = []
     for p in pinned:
@@ -165,6 +162,15 @@ def order_hubs(hubs: list[Hub], placed: dict[str, Placement], pinned: list[str],
             # plus the older match on part of the name for "hub.*" rows.
             if (builtin_key(i) == p or (i.startswith("hub.") and p in i.lower())) and i not in top:
                 top.append(i)
+    return top
+
+
+def order_hubs(hubs: list[Hub], placed: dict[str, Placement], pinned: list[str], rng: random.Random) -> list[str]:
+    """Target order for the visible rows: pinned built-in rows first, the rest shuffled.
+
+    Hidden rows are left alone; they end up below the visible ones.
+    """
+    top = pinned_hubs(hubs, pinned)
 
     def will_be_visible(h: Hub) -> bool:
         key = h.collection_key
@@ -210,6 +216,17 @@ def rotate_library(client: PlexClient, sid: str, title: str, lib: LibrarySetting
             res.changed += 1
             if not dry:
                 client.create_collection_hub(sid, key, want.recommended, want.home, want.shared)
+
+    # Pinned built-in rows: Plex often shows them only in Recommended. Switch on the home screens
+    # chosen in the settings; a switch that is off leaves Plex's setting alone.
+    by_id = {h.identifier: h for h in hubs}
+    for ident in pinned_hubs(hubs, settings.pinned_rows):
+        h = by_id[ident]
+        home, shared = h.home or settings.pinned_home, h.shared or settings.pinned_shared
+        if (h.home, h.shared) != (home, shared):
+            res.changed += 1
+            if not dry:
+                client.set_visibility(sid, ident, h.recommended, home, shared)
 
     # 2) Order.
     if lib.shuffle_order:

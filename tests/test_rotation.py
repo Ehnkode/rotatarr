@@ -73,6 +73,28 @@ def test_pinned_rows_match_identifiers_without_hub_prefix():
         assert order[:2] == ["movie.recentlyreleased", "movie.recentlyadded"]
 
 
+def test_pinned_rows_are_shown_everywhere():
+    plex = FakePlex(make_collections(10))
+    for h in plex.hub_list:
+        h.home = h.shared = False
+    lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5)
+    rotate_library(plex, "1", "Movies", lib, Settings(pinned_rows=["recentlyadded"]), random.Random(0))
+    flags = {h.identifier: (h.recommended, h.home, h.shared) for h in plex.hub_list}
+    assert flags["hub.movie.recentlyadded"] == (True, True, True)
+    assert flags["hub.movie.topunwatched"] == (True, False, False)  # not pinned: left alone
+
+
+def test_pinned_rows_home_and_friends_are_separate():
+    plex = FakePlex(make_collections(10))
+    for h in plex.hub_list:
+        h.home = h.shared = False
+    lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5)
+    settings = Settings(pinned_rows=["recentlyadded"], pinned_home=True, pinned_shared=False)
+    rotate_library(plex, "1", "Movies", lib, settings, random.Random(0))
+    h = next(h for h in plex.hub_list if h.identifier == "hub.movie.recentlyadded")
+    assert (h.recommended, h.home, h.shared) == (True, True, False)
+
+
 def test_dry_run_changes_nothing():
     plex = FakePlex(make_collections(10))
     lib = LibrarySettings(enabled=True, recommended=5, home=0, shared=0)
