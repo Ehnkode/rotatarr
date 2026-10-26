@@ -1,0 +1,25 @@
+name: Clean up old images
+
+# Started by hand from the Actions tab. Removes image versions without a tag, but keeps the
+# per-platform parts (amd64/arm64) that tagged images like latest still need.
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Only list what would be deleted"
+        type: boolean
+        default: true
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          package: rotatarr
+          delete-untagged: true
+          dry-run: ${{ inputs.dry-run }}
+          validate: true
+          token: ${{ secrets.GITHUB_TOKEN }}

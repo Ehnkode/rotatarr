@@ -58,3 +58,15 @@ def test_settings_file_is_private(client):
     _, config = client
     config.save(config.load())
     assert config.SETTINGS_FILE.stat().st_mode & 0o077 == 0
+
+
+def test_login_protects_ui_and_health_check_passes(monkeypatch, client):
+    monkeypatch.setenv("ROTATARR_USERNAME", "admin")
+    monkeypatch.setenv("ROTATARR_PASSWORD", "geheim")
+    from rotatarr import healthcheck, web
+    importlib.reload(web)
+    with TestClient(web.app) as c:
+        assert c.get("/api/state").status_code == 401
+        assert c.get("/api/state", auth=("admin", "falsch")).status_code == 401
+        req = healthcheck.request()
+        assert c.get("/api/state", headers=dict(req.header_items())).status_code == 200
