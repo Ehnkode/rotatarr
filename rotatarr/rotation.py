@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import random
 import re
+import time
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -227,16 +228,17 @@ def order_hubs(hubs: list[Hub], placed: dict[str, Placement], pinned: list[str],
     return top + spread([h.identifier for h in rest], kinds, rng)
 
 
-def apply_order(client: PlexClient, sid: str, target: list[str]) -> None:
-    """Move the rows into the target order and check that Plex really took it.
+# Seconds to give Plex after changing rows before ordering them, and between attempts.
+SETTLE_SECONDS = 5
+ORDER_ATTEMPTS = 3
 
-    Plex often refuses to move a row to the very first place (a known Plex Web bug), so no row
-    is moved to the top: the rows are lined up behind the current first row, and that row is
-    moved down to where it belongs afterwards.
+
+def move_in_order(client: PlexClient, sid: str, target: list[str], before: list[str]) -> None:
+    """Line the rows up behind the current first row, then move that row down.
+
+    Plex often refuses to move a row to the very first place (a known Plex Web bug), so no
+    row is ever moved to the top directly.
     """
-    before = [h.identifier for h in client.hubs(sid)]
-    if not before:
-        return
     first = before[0]
     prev = first
     for ident in target:
@@ -246,15 +248,30 @@ def apply_order(client: PlexClient, sid: str, target: list[str]) -> None:
     if first != target[0]:
         # A hidden first row goes below the ordered ones.
         client.move_hub(sid, first, target[target.index(first) - 1] if first in target else target[-1])
-    ids = [h.identifier for h in client.hubs(sid)]
-    if ids == before and not follows(ids, target):
-        # Plex answered every move with OK but changed nothing. This happened while Kometa
-        # was running; dragging rows in Plex Web sprang back then too.
-        log.warning("Plex ignored every row move, so the row order stays as it is. "
-                    "Is Kometa running right now?")
-        return
-    if not follows(ids, target) or ids[0] != target[0]:
-        log.warning("Plex did not take the row order. The first rows are now: %s", ", ".join(ids[:5]))
+
+
+def apply_order(client: PlexClient, sid: str, target: list[str]) -> None:
+    """Move the rows into the target order and check that Plex really took it.
+
+    Plex sometimes answers moves with OK but keeps the old order, e.g. while Kometa or a
+    change of row visibility is still being processed. Then Rotatarr waits and tries again.
+    """
+    for attempt in range(1, ORDER_ATTEMPTS + 1):
+        before = [h.identifier for h in client.hubs(sid)]
+        if not before:
+            return
+        move_in_order(client, sid, target, before)
+        ids = [h.identifier for h in client.hubs(sid)]
+        if follows(ids, target) and ids[0] == target[0]:
+            if attempt > 1:
+                log.info("Plex took the row order on attempt %d", attempt)
+            return
+        if attempt < ORDER_ATTEMPTS:
+            log.info("Plex did not keep the row order (attempt %d), trying again in %ds",
+                     attempt, SETTLE_SECONDS)
+            time.sleep(SETTLE_SECONDS)
+    log.warning("Plex did not take the row order after %d attempts. The first rows are now: %s. "
+                "Is Kometa running right now?", ORDER_ATTEMPTS, ", ".join(ids[:5]))
 
 
 def follows(ids: list[str], target: list[str]) -> bool:
@@ -313,6 +330,9 @@ def rotate_library(client: PlexClient, sid: str, title: str, lib: LibrarySetting
 
     # 2) Order. Pinned rows go on top even when the order is not shuffled.
     if not dry:
+        if res.changed:
+            # Plex may still be busy with the visibility changes and drop moves meanwhile.
+            time.sleep(SETTLE_SECONDS)
         hubs = client.hubs(sid)
     if lib.shuffle_order:
         if not dry:
