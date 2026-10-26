@@ -110,6 +110,29 @@ def _contains_exact(title: str, names: list[str]) -> bool:
     return any(n.strip().lower() == t for n in names if n.strip())
 
 
+def rank_for_home(selection: list[Collection], lib: LibrarySettings) -> list[Collection]:
+    """Reorder the selection so the home screens get at most `automatic_max_home` automatic collections.
+
+    The home screens take the first rows of the selection, so automatic collections over the limit
+    move behind them; they stay in Recommended. Always-visible and seasonal rows are never moved.
+    """
+    limit = lib.automatic_max_home
+    if limit is None:
+        return selection
+    head_len = max(lib.home, lib.shared)
+    head: list[Collection] = []
+    later: list[Collection] = []
+    used = 0
+    for c in selection:
+        fixed = _contains_exact(c.title, lib.always_visible) or _season(c.title, lib) is not None
+        if len(head) < head_len and (fixed or not c.automatic or used < limit):
+            head.append(c)
+            used += c.automatic
+        else:
+            later.append(c)
+    return head + later
+
+
 def placements(selection: list[Collection], lib: LibrarySettings) -> dict[str, Placement]:
     return {
         c.rating_key: Placement(
@@ -155,6 +178,7 @@ def rotate_library(client: PlexClient, sid: str, title: str, lib: LibrarySetting
 
     pool = build_pool(client.collections(sid), lib)
     selection = select(pool, lib, rng, state.recent(sid, settings.repeat_block_runs))
+    selection = rank_for_home(selection, lib)
     placed = placements(selection, lib)
     res.pool, res.visible = len(pool), len(selection)
 

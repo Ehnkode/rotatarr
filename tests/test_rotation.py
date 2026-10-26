@@ -154,3 +154,16 @@ def test_invalid_pattern_is_rejected():
     import pytest
     with pytest.raises(ValueError):
         LibrarySettings(exclude=["/[unclosed/"])
+
+
+def test_home_screens_get_their_own_limit_for_automatic_collections():
+    from rotatarr.rotation import placements, rank_for_home
+    pool = [Collection(str(i), f"Series {i}", 5, False, automatic=True) for i in range(30)]
+    pool += [Collection(str(100 + i), f"Mine {i}", 5, False) for i in range(20)]
+    lib = LibrarySettings(recommended=40, home=10, shared=10, automatic_max_home=2)
+    selection = rank_for_home(select(pool, lib, random.Random(3)), lib)
+    placed = placements(selection, lib)
+    home = [c for c in selection if placed[c.rating_key].home]
+    assert len(home) == 10
+    assert sum(c.automatic for c in home) == 2
+    assert sum(placed[c.rating_key].recommended for c in selection) == 40
