@@ -73,6 +73,27 @@ def test_pinned_rows_match_identifiers_without_hub_prefix():
         assert order[:2] == ["movie.recentlyreleased", "movie.recentlyadded"]
 
 
+def test_pinned_rows_are_shown_everywhere():
+    plex = FakePlex(make_collections(10))
+    for h in plex.hub_list:
+        h.home = h.shared = False
+    lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5)
+    rotate_library(plex, "1", "Movies", lib, Settings(pinned_rows=["recentlyadded"]), random.Random(0))
+    flags = {h.identifier: (h.recommended, h.home, h.shared) for h in plex.hub_list}
+    assert flags["hub.movie.recentlyadded"] == (True, True, True)
+    assert flags["hub.movie.topunwatched"] == (True, False, False)  # not pinned: left alone
+
+
+def test_pinned_rows_keep_their_visibility_when_switched_off():
+    plex = FakePlex(make_collections(10))
+    for h in plex.hub_list:
+        h.home = h.shared = False
+    lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5)
+    settings = Settings(pinned_rows=["recentlyadded"], pinned_everywhere=False)
+    rotate_library(plex, "1", "Movies", lib, settings, random.Random(0))
+    assert all(not h.home for h in plex.hub_list if h.collection_key is None)
+
+
 def test_dry_run_changes_nothing():
     plex = FakePlex(make_collections(10))
     lib = LibrarySettings(enabled=True, recommended=5, home=0, shared=0)

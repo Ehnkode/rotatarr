@@ -488,6 +488,7 @@ function fillSettingsForm() {
   if (!pinnedRows.length) pinnedRows = settings.pinned_rows.map((key) => ({ key, checked: true }));
   renderPinned();
   form.elements.dry_run.checked = settings.dry_run;
+  form.elements.pinned_everywhere.checked = settings.pinned_everywhere;
   form.elements.discord_webhook.value = settings.discord_webhook;
   form.elements.notify_success.checked = settings.notify_success;
   $("#connected-card").hidden = !settings.connected;
@@ -565,6 +566,7 @@ async function saveSettings(ev) {
       items_to_front: +form.elements.items_to_front.value,
       repeat_block_runs: +form.elements.repeat_block_runs.value,
       pinned_rows: pinnedRows.filter((r) => r.checked).map((r) => r.key),
+      pinned_everywhere: form.elements.pinned_everywhere.checked,
       dry_run: form.elements.dry_run.checked,
       discord_webhook: form.elements.discord_webhook.value.trim(),
       notify_success: form.elements.notify_success.checked,

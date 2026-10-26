@@ -82,6 +82,7 @@ class SettingsIn(BaseModel):
     shuffle_interval_minutes: int | None = None
     items_to_front: int | None = None
     pinned_rows: list[str] | None = None
+    pinned_everywhere: bool | None = None
     dry_run: bool | None = None
     repeat_block_runs: int | None = None
     discord_webhook: str | None = None
