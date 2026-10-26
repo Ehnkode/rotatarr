@@ -227,13 +227,37 @@ def order_hubs(hubs: list[Hub], placed: dict[str, Placement], pinned: list[str],
     return top + spread([h.identifier for h in rest], kinds, rng)
 
 
-def keep_on_top(client: PlexClient, sid: str, target: list[str]) -> None:
-    """Make sure the ordered rows really start at the top.
+def apply_order(client: PlexClient, sid: str, target: list[str]) -> None:
+    """Move the rows into the target order and check that Plex really took it.
 
-    Plex does not always move a row to the top when it is moved without "after". Rows that are
-    still above the ordered ones are moved below them instead.
+    Some Plex versions ignore "after" (or read it differently), which turned the order upside
+    down and left the pinned rows at the bottom. In that case every row is moved to the top,
+    last one first.
     """
+    prev = None
+    for ident in target:
+        client.move_hub(sid, ident, prev)
+        prev = ident
     ids = [h.identifier for h in client.hubs(sid)]
+    if follows(ids, target):
+        keep_on_top(client, sid, ids, target)
+        return
+    log.info("Plex did not keep the row order; moving the rows to the top one by one")
+    for ident in reversed(target):
+        client.move_hub(sid, ident, None)
+    ids = [h.identifier for h in client.hubs(sid)]
+    if not follows(ids, target) or ids[0] != target[0]:
+        log.warning("Plex did not take the row order. The first rows are now: %s", ", ".join(ids[:5]))
+
+
+def follows(ids: list[str], target: list[str]) -> bool:
+    """True if the target rows appear in this order (other rows may sit between them)."""
+    wanted = set(target)
+    return [i for i in ids if i in wanted] == [i for i in target if i in set(ids)]
+
+
+def keep_on_top(client: PlexClient, sid: str, ids: list[str], target: list[str]) -> None:
+    """Rows that are still above the ordered ones (e.g. hidden rows) are moved below them."""
     if target[0] not in ids:
         return
     above = [i for i in ids[:ids.index(target[0])] if i not in target]
@@ -313,13 +337,8 @@ def rotate_library(client: PlexClient, sid: str, title: str, lib: LibrarySetting
                        if p.visible and f"custom.collection.{sid}.{k}" not in known]
     else:
         target = pinned_hubs(hubs, settings.pinned_rows)
-    prev = None
-    for ident in target:
-        if not dry:
-            client.move_hub(sid, ident, prev)
-        prev = ident
     if target and not dry:
-        keep_on_top(client, sid, target)
+        apply_order(client, sid, target)
     res.moved = len(target)
 
     res.lines.append(f"{title}: {res.visible} of {res.pool} collections visible, "

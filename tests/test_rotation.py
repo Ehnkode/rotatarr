@@ -132,6 +132,35 @@ def test_pinned_rows_reach_the_top_when_plex_ignores_moves_to_the_top():
         assert plex.hub_list[0].identifier == "hub.movie.recentlyadded"
 
 
+class AfterIgnored(FakePlex):
+    """A Plex that ignores "after" and moves every row to the top."""
+
+    def move_hub(self, sid, ident, after):
+        super().move_hub(sid, ident, None)
+
+
+class MovesBefore(FakePlex):
+    """A Plex that puts a row before the "after" row instead of behind it."""
+
+    def move_hub(self, sid, ident, after):
+        self.calls.append(("move", ident))
+        h = self._hub(ident)
+        self.hub_list.remove(h)
+        pos = 0 if after is None else self.hub_list.index(self._hub(after))
+        self.hub_list.insert(pos, h)
+
+
+def test_order_holds_when_plex_reads_after_differently():
+    for cls in (AfterIgnored, MovesBefore):
+        plex = cls(make_collections(10))
+        lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5)
+        settings = Settings(pinned_rows=["recentlyadded", "inprogress"])
+        for seed in range(3):
+            rotate_library(plex, "1", "Movies", lib, settings, random.Random(seed))
+            order = [h.identifier for h in plex.hub_list]
+            assert order[:2] == ["hub.movie.recentlyadded", "hub.movie.inprogress"], cls.__name__
+
+
 def test_spread_keeps_similar_rows_apart():
     ids = [f"a{i}" for i in range(10)] + [f"b{i}" for i in range(10)] + [f"c{i}" for i in range(5)]
     kinds = {i: i[0] for i in ids}
