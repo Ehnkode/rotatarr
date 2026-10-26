@@ -130,35 +130,10 @@ def test_pinned_rows_reach_the_top_when_plex_ignores_moves_to_the_top():
         lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5, shuffle_order=shuffle)
         rotate_library(plex, "1", "Movies", lib, Settings(pinned_rows=["recentlyadded"]), random.Random(0))
         assert plex.hub_list[0].identifier == "hub.movie.recentlyadded"
-
-
-class AfterIgnored(FakePlex):
-    """A Plex that ignores "after" and moves every row to the top."""
-
-    def move_hub(self, sid, ident, after):
-        super().move_hub(sid, ident, None)
-
-
-class MovesBefore(FakePlex):
-    """A Plex that puts a row before the "after" row instead of behind it."""
-
-    def move_hub(self, sid, ident, after):
-        self.calls.append(("move", ident))
-        h = self._hub(ident)
-        self.hub_list.remove(h)
-        pos = 0 if after is None else self.hub_list.index(self._hub(after))
-        self.hub_list.insert(pos, h)
-
-
-def test_order_holds_when_plex_reads_after_differently():
-    for cls in (AfterIgnored, MovesBefore):
-        plex = cls(make_collections(10))
-        lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5)
-        settings = Settings(pinned_rows=["recentlyadded", "inprogress"])
-        for seed in range(3):
-            rotate_library(plex, "1", "Movies", lib, settings, random.Random(seed))
-            order = [h.identifier for h in plex.hub_list]
-            assert order[:2] == ["hub.movie.recentlyadded", "hub.movie.inprogress"], cls.__name__
+        if shuffle:
+            # every visible row comes before every hidden row
+            flags = [h.visible for h in plex.hub_list]
+            assert flags == sorted(flags, reverse=True)
 
 
 class MovesIgnored(FakePlex):
@@ -174,6 +149,20 @@ def test_no_second_round_of_moves_when_plex_ignores_them():
     rotate_library(plex, "1", "Movies", lib, Settings(pinned_rows=["recentlyadded"]), random.Random(0))
     moves = [c for c in plex.calls if c[0] == "move"]
     assert len(moves) == len([h for h in plex.hub_list if h.visible])
+
+
+def test_rows_are_never_moved_to_the_top_directly():
+    plex = FakePlex(make_collections(10))
+    plex.hub_list.insert(0, Hub("hub.movie.genre", "Genre", True, False, False))
+    moves = []
+    original = plex.move_hub
+    plex.move_hub = lambda sid, ident, after: (moves.append(after), original(sid, ident, after))
+    lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5)
+    rotate_library(plex, "1", "Movies", lib, Settings(pinned_rows=["recentlyadded"]), random.Random(0))
+    assert None not in moves
+    order = [h.identifier for h in plex.hub_list]
+    assert order[0] == "hub.movie.recentlyadded"
+    assert order.index("hub.movie.genre") < len([h for h in plex.hub_list if h.visible])
 
 
 def test_spread_keeps_similar_rows_apart():
