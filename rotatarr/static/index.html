@@ -103,7 +103,10 @@
             <button type="button" id="add-quota" data-t="quota_add"></button>
           </div>
           <div class="field" id="automatic-field" hidden>
-            <label><span data-t="automatic_max"></span><input type="number" min="0" name="automatic_max" data-t-placeholder="no_limit"></label>
+            <div class="grid2">
+              <label><span data-t="automatic_max"></span><input type="number" min="0" name="automatic_max" data-t-placeholder="no_limit"></label>
+              <label><span data-t="automatic_max_home"></span><input type="number" min="0" name="automatic_max_home" data-t-placeholder="no_limit"></label>
+            </div>
             <p class="muted" id="automatic-hint"></p>
           </div>
         </details>

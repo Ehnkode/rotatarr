@@ -261,6 +261,7 @@ async function fillLibraryForm() {
     seasons.set(x.title.toLowerCase(), { start: x.start, end: x.end });
   });
   form.elements.automatic_max.value = s.automatic_max ?? "";
+  form.elements.automatic_max_home.value = s.automatic_max_home ?? "";
   collections = await api(`/api/libraries/${lib.key}/collections`).catch(() => []);
   renderCollections();
 }
@@ -381,6 +382,7 @@ async function saveLibrary(ev) {
     seasonal: titlesWithMode("seasonal").map((title) => ({ title, ...seasons.get(title.toLowerCase()) })),
     quotas,
     automatic_max: form.elements.automatic_max.value === "" ? null : +form.elements.automatic_max.value,
+    automatic_max_home: form.elements.automatic_max_home.value === "" ? null : +form.elements.automatic_max_home.value,
     shuffle_order: form.elements.shuffle_order.checked,
     shuffle_items: form.elements.shuffle_items.checked,
   };

@@ -66,6 +66,8 @@ class LibrarySettings(BaseModel):
     quotas: list[Quota] = Field(default_factory=list)
     # At most this many of Plex's automatic movie collections per run; None = no limit.
     automatic_max: int | None = Field(default=None, ge=0)
+    # Of those, at most this many on the home screens (yours and friends'); None = no own limit.
+    automatic_max_home: int | None = Field(default=None, ge=0)
     shuffle_order: bool = True
     shuffle_items: bool = True
 
