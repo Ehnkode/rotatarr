@@ -124,6 +124,7 @@ class TopMoveIgnored(FakePlex):
 
 def test_pinned_rows_reach_the_top_when_plex_ignores_moves_to_the_top():
     plex = TopMoveIgnored(make_collections(10))
+    plex.hub_list.insert(0, Hub("custom.collection.1.999", "Hidden", False, False, False))
     FakePlex.move_hub(plex, None, "hub.movie.recentlyadded", plex.hub_list[-1].identifier)
     for shuffle in (True, False):
         lib = LibrarySettings(enabled=True, recommended=5, home=5, shared=5, shuffle_order=shuffle)
