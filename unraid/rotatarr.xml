@@ -8,8 +8,9 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/Ehnkode/rotatarr/issues</Support>
   <Project>https://github.com/Ehnkode/rotatarr</Project>
-  <Overview>Keeps your home screen fresh, for Plex. Shows a random selection of your collections as rows in Recommended and on the home screens, shuffles the row order while keeping built-in rows like Continue Watching on top, and shuffles the titles inside the rows. Seasonal collections (e.g. Halloween only in October), limits per run, Discord notifications and a one-click undo. Works with any collections: Kometa, automatic movie collections or your own.</Overview>
-  <Category>MediaServer:Video Tools:</Category>
+  <Overview>Keeps your Plex home screen fresh. Rotatarr shows a changing, random selection of your collections as rows in Recommended, on your home screen and on your friends' home screens, shuffles the row order (built-in rows like Continue Watching stay on top) and shuffles the titles inside the rows. A hands-off alternative to curating playlists or pinning collections by hand. Seasonal collections (e.g. Halloween only in October), limits per run, Discord alerts for failed runs and a one-click undo. Works with any collections: Kometa (Plex Meta Manager), automatic movie collections or your own. It only changes which collections are shown and in what order, it never deletes or edits them.</Overview>
+  <ExtraSearchTerms>plex playlist playlists collection collections home%20screen homescreen recommended rows shuffle random rotate rotation seasonal kometa pmm plex%20meta%20manager sammlungen startseite</ExtraSearchTerms>
+  <Category>MediaServer:Video MediaApp:Video Tools:</Category>
   <WebUI>http://[IP]:[PORT:7373]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/Ehnkode/rotatarr/main/unraid/rotatarr.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/Ehnkode/rotatarr/main/rotatarr/static/icon.png</Icon>
